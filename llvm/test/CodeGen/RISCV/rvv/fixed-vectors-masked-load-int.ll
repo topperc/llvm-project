@@ -399,35 +399,23 @@ declare <32 x i32> @llvm.masked.load.v32i32(<32 x i32>*, i32, <32 x i1>, <32 x i
 define void @masked_load_v32i64(<32 x i64>* %a, <32 x i64>* %m_ptr, <32 x i64>* %res_ptr) nounwind {
 ; RV32-LABEL: masked_load_v32i64:
 ; RV32:       # %bb.0:
-; RV32-NEXT:    addi sp, sp, -16
-; RV32-NEXT:    csrr a3, vlenb
-; RV32-NEXT:    slli a3, a3, 3
-; RV32-NEXT:    sub sp, sp, a3
 ; RV32-NEXT:    addi a3, a1, 128
 ; RV32-NEXT:    vsetivli zero, 16, e64, m8, ta, mu
-; RV32-NEXT:    vle64.v v8, (a3)
-; RV32-NEXT:    addi a3, sp, 16
-; RV32-NEXT:    vs8r.v v8, (a3) # Unknown-size Folded Spill
-; RV32-NEXT:    vle64.v v16, (a1)
+; RV32-NEXT:    vle64.v v8, (a1)
+; RV32-NEXT:    vle64.v v16, (a3)
 ; RV32-NEXT:    addi a1, zero, 32
 ; RV32-NEXT:    vsetvli zero, a1, e32, m8, ta, mu
-; RV32-NEXT:    vmv.v.i v8, 0
+; RV32-NEXT:    vmv.v.i v24, 0
 ; RV32-NEXT:    vsetivli zero, 16, e64, m8, ta, mu
-; RV32-NEXT:    vmseq.vv v25, v16, v8
-; RV32-NEXT:    addi a1, sp, 16
-; RV32-NEXT:    vl8re8.v v16, (a1) # Unknown-size Folded Reload
-; RV32-NEXT:    vmseq.vv v0, v16, v8
+; RV32-NEXT:    vmseq.vv v1, v8, v24
+; RV32-NEXT:    vmseq.vv v0, v16, v24
 ; RV32-NEXT:    addi a1, a0, 128
 ; RV32-NEXT:    vle64.v v8, (a1), v0.t
-; RV32-NEXT:    vmv1r.v v0, v25
+; RV32-NEXT:    vmv1r.v v0, v1
 ; RV32-NEXT:    vle64.v v16, (a0), v0.t
 ; RV32-NEXT:    vse64.v v16, (a2)
 ; RV32-NEXT:    addi a0, a2, 128
 ; RV32-NEXT:    vse64.v v8, (a0)
-; RV32-NEXT:    csrr a0, vlenb
-; RV32-NEXT:    slli a0, a0, 3
-; RV32-NEXT:    add sp, sp, a0
-; RV32-NEXT:    addi sp, sp, 16
 ; RV32-NEXT:    ret
 ;
 ; RV64-LABEL: masked_load_v32i64:

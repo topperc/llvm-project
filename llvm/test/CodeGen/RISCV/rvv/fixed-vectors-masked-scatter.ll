@@ -1847,11 +1847,11 @@ define void @mscatter_baseidx_v32i8(<32 x i8> %val, i8* %base, <32 x i8> %idxs, 
 ; RV64-NEXT:    vsetivli zero, 16, e8, m2, ta, mu
 ; RV64-NEXT:    vslidedown.vi v26, v8, 16
 ; RV64-NEXT:    vslidedown.vi v28, v10, 16
-; RV64-NEXT:    vsetivli zero, 16, e64, m8, ta, mu
-; RV64-NEXT:    vsext.vf8 v8, v28
 ; RV64-NEXT:    vsetivli zero, 2, e8, mf4, ta, mu
 ; RV64-NEXT:    vslidedown.vi v0, v0, 2
-; RV64-NEXT:    vsetivli zero, 16, e8, m1, ta, mu
+; RV64-NEXT:    vsetivli zero, 16, e64, m8, ta, mu
+; RV64-NEXT:    vsext.vf8 v8, v28
+; RV64-NEXT:    vsetvli zero, zero, e8, m1, ta, mu
 ; RV64-NEXT:    vsoxei64.v v26, (a0), v8, v0.t
 ; RV64-NEXT:    ret
   %ptrs = getelementptr inbounds i8, i8* %base, <32 x i8> %idxs

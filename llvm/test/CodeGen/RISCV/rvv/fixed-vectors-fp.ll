@@ -436,13 +436,12 @@ define void @copysign_neg_v2f64(<2 x double>* %x, <2 x double>* %y) {
 define void @copysign_neg_trunc_v4f16_v4f32(<4 x half>* %x, <4 x float>* %y) {
 ; CHECK-LABEL: copysign_neg_trunc_v4f16_v4f32:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vsetivli zero, 4, e16, mf2, ta, mu
-; CHECK-NEXT:    vle16.v v25, (a0)
-; CHECK-NEXT:    vsetvli zero, zero, e32, m1, ta, mu
-; CHECK-NEXT:    vle32.v v26, (a1)
+; CHECK-NEXT:    vsetivli zero, 4, e32, m1, ta, mu
+; CHECK-NEXT:    vle32.v v25, (a1)
 ; CHECK-NEXT:    vsetvli zero, zero, e16, mf2, ta, mu
-; CHECK-NEXT:    vfncvt.f.f.w v27, v26
-; CHECK-NEXT:    vfsgnjn.vv v25, v25, v27
+; CHECK-NEXT:    vle16.v v26, (a0)
+; CHECK-NEXT:    vfncvt.f.f.w v27, v25
+; CHECK-NEXT:    vfsgnjn.vv v25, v26, v27
 ; CHECK-NEXT:    vse16.v v25, (a0)
 ; CHECK-NEXT:    ret
   %a = load <4 x half>, <4 x half>* %x
@@ -458,13 +457,14 @@ declare <4 x half> @llvm.copysign.v4f16(<4 x half>, <4 x half>)
 define void @copysign_neg_ext_v2f64_v2f32(<2 x double>* %x, <2 x float>* %y) {
 ; CHECK-LABEL: copysign_neg_ext_v2f64_v2f32:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vsetivli zero, 2, e64, m1, ta, mu
-; CHECK-NEXT:    vle64.v v25, (a0)
-; CHECK-NEXT:    vsetvli zero, zero, e32, mf2, ta, mu
-; CHECK-NEXT:    vle32.v v26, (a1)
-; CHECK-NEXT:    vfwcvt.f.f.v v27, v26
+; CHECK-NEXT:    vsetivli zero, 2, e32, mf2, ta, mu
+; CHECK-NEXT:    vle32.v v25, (a1)
 ; CHECK-NEXT:    vsetvli zero, zero, e64, m1, ta, mu
-; CHECK-NEXT:    vfsgnjn.vv v25, v25, v27
+; CHECK-NEXT:    vle64.v v26, (a0)
+; CHECK-NEXT:    vsetvli zero, zero, e32, mf2, ta, mu
+; CHECK-NEXT:    vfwcvt.f.f.v v27, v25
+; CHECK-NEXT:    vsetvli zero, zero, e64, m1, ta, mu
+; CHECK-NEXT:    vfsgnjn.vv v25, v26, v27
 ; CHECK-NEXT:    vse64.v v25, (a0)
 ; CHECK-NEXT:    ret
   %a = load <2 x double>, <2 x double>* %x
@@ -1199,8 +1199,8 @@ define void @fneg_v16f16(<16 x half>* %x) {
 ;
 ; LMULMAX1-LABEL: fneg_v16f16:
 ; LMULMAX1:       # %bb.0:
-; LMULMAX1-NEXT:    vsetivli zero, 8, e16, m1, ta, mu
 ; LMULMAX1-NEXT:    addi a1, a0, 16
+; LMULMAX1-NEXT:    vsetivli zero, 8, e16, m1, ta, mu
 ; LMULMAX1-NEXT:    vle16.v v25, (a1)
 ; LMULMAX1-NEXT:    vle16.v v26, (a0)
 ; LMULMAX1-NEXT:    vfsgnjn.vv v25, v25, v25
@@ -1225,8 +1225,8 @@ define void @fneg_v8f32(<8 x float>* %x) {
 ;
 ; LMULMAX1-LABEL: fneg_v8f32:
 ; LMULMAX1:       # %bb.0:
-; LMULMAX1-NEXT:    vsetivli zero, 4, e32, m1, ta, mu
 ; LMULMAX1-NEXT:    addi a1, a0, 16
+; LMULMAX1-NEXT:    vsetivli zero, 4, e32, m1, ta, mu
 ; LMULMAX1-NEXT:    vle32.v v25, (a1)
 ; LMULMAX1-NEXT:    vle32.v v26, (a0)
 ; LMULMAX1-NEXT:    vfsgnjn.vv v25, v25, v25
@@ -1251,8 +1251,8 @@ define void @fneg_v4f64(<4 x double>* %x) {
 ;
 ; LMULMAX1-LABEL: fneg_v4f64:
 ; LMULMAX1:       # %bb.0:
-; LMULMAX1-NEXT:    vsetivli zero, 2, e64, m1, ta, mu
 ; LMULMAX1-NEXT:    addi a1, a0, 16
+; LMULMAX1-NEXT:    vsetivli zero, 2, e64, m1, ta, mu
 ; LMULMAX1-NEXT:    vle64.v v25, (a1)
 ; LMULMAX1-NEXT:    vle64.v v26, (a0)
 ; LMULMAX1-NEXT:    vfsgnjn.vv v25, v25, v25

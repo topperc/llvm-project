@@ -3,7 +3,7 @@
 # RUN:     -run-pass=riscv-insert-vsetvli | FileCheck %s
 
 --- |
-  ; ModuleID = 'vsetvli-insert.ll'
+  ; ModuleID = 'vsetvli-insert-crossbb.ll'
   source_filename = "vsetvli-insert.ll"
   target datalayout = "e-m:e-p:64:64-i64:64-i128:128-n64-S128"
   target triple = "riscv64"
@@ -133,6 +133,7 @@ registers:
   - { id: 6, class: vr }
   - { id: 7, class: gpr }
   - { id: 8, class: gpr }
+  - { id: 9, class: vr }
 liveins:
   - { reg: '$x10', virtual-reg: '%4' }
   - { reg: '$x11', virtual-reg: '%5' }
@@ -147,48 +148,44 @@ body:             |
   ; CHECK:   successors: %bb.2(0x30000000), %bb.1(0x50000000)
   ; CHECK:   liveins: $x10, $x11, $v8, $x12
   ; CHECK:   [[COPY:%[0-9]+]]:gpr = COPY $x12
-  ; CHECK:   [[COPY1:%[0-9]+]]:vr = COPY $v8
-  ; CHECK:   [[COPY2:%[0-9]+]]:gpr = COPY $x11
-  ; CHECK:   [[COPY3:%[0-9]+]]:gpr = COPY $x10
+  ; CHECK:   [[COPY1:%[0-9]+]]:gpr = COPY $x11
   ; CHECK:   dead $x0 = PseudoVSETVLI [[COPY]], 88, implicit-def $vl, implicit-def $vtype
-  ; CHECK:   [[PseudoVLE64_V_M1_:%[0-9]+]]:vr = PseudoVLE64_V_M1 [[COPY2]], $noreg, 6, implicit $vl, implicit $vtype
-  ; CHECK:   [[COPY4:%[0-9]+]]:gpr = COPY $x0
-  ; CHECK:   BEQ [[COPY3]], [[COPY4]], %bb.2
+  ; CHECK:   [[PseudoVLE64_V_M1_:%[0-9]+]]:vr = PseudoVLE64_V_M1 [[COPY1]], $noreg, 6, implicit $vl, implicit $vtype
+  ; CHECK:   [[COPY2:%[0-9]+]]:vr = COPY $v8
+  ; CHECK:   [[COPY3:%[0-9]+]]:gpr = COPY $x10
+  ; CHECK:   BEQ [[COPY3]], $x0, %bb.2
   ; CHECK:   PseudoBR %bb.1
   ; CHECK: bb.1.if.then:
   ; CHECK:   successors: %bb.3(0x80000000)
-  ; CHECK:   [[PseudoVADD_VV_M1_:%[0-9]+]]:vr = PseudoVADD_VV_M1 [[PseudoVLE64_V_M1_]], [[COPY1]], $noreg, 6, implicit $vl, implicit $vtype
+  ; CHECK:   [[PseudoVADD_VV_M1_:%[0-9]+]]:vr = PseudoVADD_VV_M1 [[PseudoVLE64_V_M1_]], [[COPY2]], $noreg, 6, implicit $vl, implicit $vtype
   ; CHECK:   PseudoBR %bb.3
   ; CHECK: bb.2.if.else:
   ; CHECK:   successors: %bb.3(0x80000000)
-  ; CHECK:   [[PseudoVSUB_VV_M1_:%[0-9]+]]:vr = PseudoVSUB_VV_M1 [[PseudoVLE64_V_M1_]], [[COPY1]], $noreg, 6, implicit $vl, implicit $vtype
+  ; CHECK:   [[PseudoVSUB_VV_M1_:%[0-9]+]]:vr = PseudoVSUB_VV_M1 [[PseudoVLE64_V_M1_]], [[COPY2]], $noreg, 6, implicit $vl, implicit $vtype
   ; CHECK: bb.3.if.end:
-  ; CHECK:   [[PHI:%[0-9]+]]:vr = PHI [[PseudoVADD_VV_M1_]], %bb.1, [[PseudoVSUB_VV_M1_]], %bb.2
-  ; CHECK:   $v8 = COPY [[PHI]]
+  ; CHECK:   $v8 = COPY [[PseudoVSUB_VV_M1_]]
   ; CHECK:   PseudoRET implicit $v8
   bb.0.entry:
     successors: %bb.2(0x30000000), %bb.1(0x50000000)
     liveins: $x10, $x11, $v8, $x12
 
     %7:gpr = COPY $x12
-    %6:vr = COPY $v8
     %5:gpr = COPY $x11
-    %4:gpr = COPY $x10
     %0:vr = PseudoVLE64_V_M1 %5, %7, 6
-    %8:gpr = COPY $x0
-    BEQ %4, %8, %bb.2
+    %6:vr = COPY $v8
+    %4:gpr = COPY $x10
+    BEQ %4, $x0, %bb.2
     PseudoBR %bb.1
 
   bb.1.if.then:
-    %1:vr = PseudoVADD_VV_M1 %0, %6, %7, 6
+    %9:vr = PseudoVADD_VV_M1 %0, %6, %7, 6
     PseudoBR %bb.3
 
   bb.2.if.else:
-    %2:vr = PseudoVSUB_VV_M1 %0, %6, %7, 6
+    %9:vr = PseudoVSUB_VV_M1 %0, %6, %7, 6
 
   bb.3.if.end:
-    %3:vr = PHI %1, %bb.1, %2, %bb.2
-    $v8 = COPY %3
+    $v8 = COPY %9
     PseudoRET implicit $v8
 
 ...
@@ -206,6 +203,7 @@ registers:
   - { id: 6, class: gpr }
   - { id: 7, class: gpr }
   - { id: 8, class: gpr }
+  - { id: 9, class: vr }
 liveins:
   - { reg: '$x10', virtual-reg: '%4' }
   - { reg: '$x11', virtual-reg: '%5' }
@@ -220,50 +218,46 @@ body:             |
   ; CHECK:   successors: %bb.2(0x30000000), %bb.1(0x50000000)
   ; CHECK:   liveins: $x10, $x11, $x12, $x13
   ; CHECK:   [[COPY:%[0-9]+]]:gpr = COPY $x13
-  ; CHECK:   [[COPY1:%[0-9]+]]:gpr = COPY $x12
-  ; CHECK:   [[COPY2:%[0-9]+]]:gpr = COPY $x11
-  ; CHECK:   [[COPY3:%[0-9]+]]:gpr = COPY $x10
+  ; CHECK:   [[COPY1:%[0-9]+]]:gpr = COPY $x11
   ; CHECK:   dead $x0 = PseudoVSETVLI [[COPY]], 87, implicit-def $vl, implicit-def $vtype
-  ; CHECK:   [[PseudoVLE32_V_MF2_:%[0-9]+]]:vr = PseudoVLE32_V_MF2 [[COPY2]], $noreg, 5, implicit $vl, implicit $vtype
-  ; CHECK:   [[COPY4:%[0-9]+]]:gpr = COPY $x0
-  ; CHECK:   BEQ [[COPY3]], [[COPY4]], %bb.2
+  ; CHECK:   [[PseudoVLE32_V_MF2_:%[0-9]+]]:vr = PseudoVLE32_V_MF2 [[COPY1]], $noreg, 5, implicit $vl, implicit $vtype
+  ; CHECK:   [[COPY2:%[0-9]+]]:gpr = COPY $x12
+  ; CHECK:   [[COPY3:%[0-9]+]]:gpr = COPY $x10
+  ; CHECK:   BEQ [[COPY3]], $x0, %bb.2
   ; CHECK:   PseudoBR %bb.1
   ; CHECK: bb.1.if.then:
   ; CHECK:   successors: %bb.3(0x80000000)
   ; CHECK:   dead $x0 = PseudoVSETVLI killed $x0, 88, implicit-def $vl, implicit-def $vtype, implicit $vl
-  ; CHECK:   early-clobber %1:vr = PseudoVZEXT_VF2_M1 [[PseudoVLE32_V_MF2_]], $noreg, 6, implicit $vl, implicit $vtype
+  ; CHECK:   early-clobber %9:vr = PseudoVZEXT_VF2_M1 [[PseudoVLE32_V_MF2_]], $noreg, 6, implicit $vl, implicit $vtype
   ; CHECK:   PseudoBR %bb.3
   ; CHECK: bb.2.if.else:
   ; CHECK:   successors: %bb.3(0x80000000)
   ; CHECK:   dead $x0 = PseudoVSETVLI killed $x0, 88, implicit-def $vl, implicit-def $vtype, implicit $vl
-  ; CHECK:   early-clobber %2:vr = PseudoVSEXT_VF2_M1 [[PseudoVLE32_V_MF2_]], $noreg, 6, implicit $vl, implicit $vtype
+  ; CHECK:   early-clobber %9:vr = PseudoVSEXT_VF2_M1 [[PseudoVLE32_V_MF2_]], $noreg, 6, implicit $vl, implicit $vtype
   ; CHECK: bb.3.if.end:
-  ; CHECK:   [[PHI:%[0-9]+]]:vr = PHI %1, %bb.1, %2, %bb.2
-  ; CHECK:   PseudoVSE64_V_M1 [[PHI]], [[COPY1]], $noreg, 6, implicit $vl, implicit $vtype
+  ; CHECK:   PseudoVSE64_V_M1 %9, [[COPY2]], $noreg, 6, implicit $vl, implicit $vtype
   ; CHECK:   PseudoRET
   bb.0.entry:
     successors: %bb.2(0x30000000), %bb.1(0x50000000)
     liveins: $x10, $x11, $x12, $x13
 
     %7:gpr = COPY $x13
-    %6:gpr = COPY $x12
     %5:gpr = COPY $x11
-    %4:gpr = COPY $x10
     %0:vr = PseudoVLE32_V_MF2 %5, %7, 5
-    %8:gpr = COPY $x0
-    BEQ %4, %8, %bb.2
+    %6:gpr = COPY $x12
+    %4:gpr = COPY $x10
+    BEQ %4, $x0, %bb.2
     PseudoBR %bb.1
 
   bb.1.if.then:
-    early-clobber %1:vr = PseudoVZEXT_VF2_M1 %0, %7, 6
+    early-clobber %9:vr = PseudoVZEXT_VF2_M1 %0, %7, 6
     PseudoBR %bb.3
 
   bb.2.if.else:
-    early-clobber %2:vr = PseudoVSEXT_VF2_M1 %0, %7, 6
+    early-clobber %9:vr = PseudoVSEXT_VF2_M1 %0, %7, 6
 
   bb.3.if.end:
-    %3:vr = PHI %1, %bb.1, %2, %bb.2
-    PseudoVSE64_V_M1 %3, %6, %7, 6
+    PseudoVSE64_V_M1 %9, %6, %7, 6
     PseudoRET
 
 ...
@@ -281,6 +275,7 @@ registers:
   - { id: 6, class: gpr }
   - { id: 7, class: gpr }
   - { id: 8, class: gpr }
+  - { id: 9, class: vr }
 liveins:
   - { reg: '$x10', virtual-reg: '%3' }
   - { reg: '$v8', virtual-reg: '%4' }
@@ -298,8 +293,7 @@ body:             |
   ; CHECK:   [[COPY1:%[0-9]+]]:vr = COPY $v9
   ; CHECK:   [[COPY2:%[0-9]+]]:vr = COPY $v8
   ; CHECK:   [[COPY3:%[0-9]+]]:gpr = COPY $x10
-  ; CHECK:   [[COPY4:%[0-9]+]]:gpr = COPY $x0
-  ; CHECK:   BEQ [[COPY3]], [[COPY4]], %bb.2
+  ; CHECK:   BEQ [[COPY3]], $x0, %bb.2
   ; CHECK:   PseudoBR %bb.1
   ; CHECK: bb.1.if.then:
   ; CHECK:   successors: %bb.3(0x80000000)
@@ -311,8 +305,7 @@ body:             |
   ; CHECK:   dead $x0 = PseudoVSETVLI [[COPY]], 88, implicit-def $vl, implicit-def $vtype
   ; CHECK:   [[PseudoVSUB_VV_M1_:%[0-9]+]]:vr = PseudoVSUB_VV_M1 [[COPY1]], [[COPY1]], $noreg, 6, implicit $vl, implicit $vtype
   ; CHECK: bb.3.if.end:
-  ; CHECK:   [[PHI:%[0-9]+]]:vr = PHI [[PseudoVADD_VV_M1_]], %bb.1, [[PseudoVSUB_VV_M1_]], %bb.2
-  ; CHECK:   [[PseudoVMV_X_S_M1_:%[0-9]+]]:gpr = PseudoVMV_X_S_M1 [[PHI]], 6, implicit $vtype
+  ; CHECK:   [[PseudoVMV_X_S_M1_:%[0-9]+]]:gpr = PseudoVMV_X_S_M1 [[PseudoVSUB_VV_M1_]], 6, implicit $vtype
   ; CHECK:   $x10 = COPY [[PseudoVMV_X_S_M1_]]
   ; CHECK:   PseudoRET implicit $x10
   bb.0.entry:
@@ -323,20 +316,18 @@ body:             |
     %5:vr = COPY $v9
     %4:vr = COPY $v8
     %3:gpr = COPY $x10
-    %7:gpr = COPY $x0
-    BEQ %3, %7, %bb.2
+    BEQ %3, $x0, %bb.2
     PseudoBR %bb.1
 
   bb.1.if.then:
-    %0:vr = PseudoVADD_VV_M1 %4, %5, %6, 6
+    %9:vr = PseudoVADD_VV_M1 %4, %5, %6, 6
     PseudoBR %bb.3
 
   bb.2.if.else:
-    %1:vr = PseudoVSUB_VV_M1 %5, %5, %6, 6
+    %9:vr = PseudoVSUB_VV_M1 %5, %5, %6, 6
 
   bb.3.if.end:
-    %2:vr = PHI %0, %bb.1, %1, %bb.2
-    %8:gpr = PseudoVMV_X_S_M1 %2, 6
+    %8:gpr = PseudoVMV_X_S_M1 %9, 6
     $x10 = COPY %8
     PseudoRET implicit $x10
 
@@ -355,6 +346,7 @@ registers:
   - { id: 6, class: vr }
   - { id: 7, class: gpr }
   - { id: 8, class: gpr }
+  - { id: 9, class: vr }
 liveins:
   - { reg: '$x10', virtual-reg: '%4' }
   - { reg: '$v8', virtual-reg: '%5' }
@@ -373,8 +365,7 @@ body:             |
   ; CHECK:   [[COPY2:%[0-9]+]]:vr = COPY $v8
   ; CHECK:   [[COPY3:%[0-9]+]]:gpr = COPY $x10
   ; CHECK:   [[PseudoVSETVLI:%[0-9]+]]:gpr = PseudoVSETVLI [[COPY]], 88, implicit-def $vl, implicit-def $vtype
-  ; CHECK:   [[COPY4:%[0-9]+]]:gpr = COPY $x0
-  ; CHECK:   BEQ [[COPY3]], [[COPY4]], %bb.2
+  ; CHECK:   BEQ [[COPY3]], $x0, %bb.2
   ; CHECK:   PseudoBR %bb.1
   ; CHECK: bb.1.if.then:
   ; CHECK:   successors: %bb.3(0x80000000)
@@ -384,8 +375,7 @@ body:             |
   ; CHECK:   successors: %bb.3(0x80000000)
   ; CHECK:   [[PseudoVSUB_VV_M1_:%[0-9]+]]:vr = PseudoVSUB_VV_M1 [[COPY2]], [[COPY1]], $noreg, 6, implicit $vl, implicit $vtype
   ; CHECK: bb.3.if.end:
-  ; CHECK:   [[PHI:%[0-9]+]]:vr = PHI [[PseudoVADD_VV_M1_]], %bb.1, [[PseudoVSUB_VV_M1_]], %bb.2
-  ; CHECK:   $v8 = COPY [[PHI]]
+  ; CHECK:   $v8 = COPY [[PseudoVSUB_VV_M1_]]
   ; CHECK:   PseudoRET implicit $v8
   bb.0.entry:
     successors: %bb.2(0x30000000), %bb.1(0x50000000)
@@ -396,20 +386,18 @@ body:             |
     %5:vr = COPY $v8
     %4:gpr = COPY $x10
     %0:gpr = PseudoVSETVLI %7, 88, implicit-def dead $vl, implicit-def dead $vtype
-    %8:gpr = COPY $x0
-    BEQ %4, %8, %bb.2
+    BEQ %4, $x0, %bb.2
     PseudoBR %bb.1
 
   bb.1.if.then:
-    %1:vr = PseudoVADD_VV_M1 %5, %6, %0, 6
+    %9:vr = PseudoVADD_VV_M1 %5, %6, %0, 6
     PseudoBR %bb.3
 
   bb.2.if.else:
-    %2:vr = PseudoVSUB_VV_M1 %5, %6, %0, 6
+    %9:vr = PseudoVSUB_VV_M1 %5, %6, %0, 6
 
   bb.3.if.end:
-    %3:vr = PHI %1, %bb.1, %2, %bb.2
-    $v8 = COPY %3
+    $v8 = COPY %9
     PseudoRET implicit $v8
 
 ...

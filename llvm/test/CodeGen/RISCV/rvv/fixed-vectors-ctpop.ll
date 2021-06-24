@@ -470,8 +470,8 @@ define void @ctpop_v32i8(<32 x i8>* %x, <32 x i8>* %y) {
 ;
 ; LMULMAX1-LABEL: ctpop_v32i8:
 ; LMULMAX1:       # %bb.0:
-; LMULMAX1-NEXT:    vsetivli zero, 16, e8, m1, ta, mu
 ; LMULMAX1-NEXT:    addi a1, a0, 16
+; LMULMAX1-NEXT:    vsetivli zero, 16, e8, m1, ta, mu
 ; LMULMAX1-NEXT:    vle8.v v25, (a1)
 ; LMULMAX1-NEXT:    vle8.v v26, (a0)
 ; LMULMAX1-NEXT:    vsrl.vi v27, v25, 1
@@ -562,8 +562,8 @@ define void @ctpop_v16i16(<16 x i16>* %x, <16 x i16>* %y) {
 ;
 ; LMULMAX1-RV32-LABEL: ctpop_v16i16:
 ; LMULMAX1-RV32:       # %bb.0:
-; LMULMAX1-RV32-NEXT:    vsetivli zero, 8, e16, m1, ta, mu
 ; LMULMAX1-RV32-NEXT:    addi a1, a0, 16
+; LMULMAX1-RV32-NEXT:    vsetivli zero, 8, e16, m1, ta, mu
 ; LMULMAX1-RV32-NEXT:    vle16.v v25, (a1)
 ; LMULMAX1-RV32-NEXT:    vle16.v v26, (a0)
 ; LMULMAX1-RV32-NEXT:    vsrl.vi v27, v25, 1
@@ -603,8 +603,8 @@ define void @ctpop_v16i16(<16 x i16>* %x, <16 x i16>* %y) {
 ;
 ; LMULMAX1-RV64-LABEL: ctpop_v16i16:
 ; LMULMAX1-RV64:       # %bb.0:
-; LMULMAX1-RV64-NEXT:    vsetivli zero, 8, e16, m1, ta, mu
 ; LMULMAX1-RV64-NEXT:    addi a1, a0, 16
+; LMULMAX1-RV64-NEXT:    vsetivli zero, 8, e16, m1, ta, mu
 ; LMULMAX1-RV64-NEXT:    vle16.v v25, (a1)
 ; LMULMAX1-RV64-NEXT:    vle16.v v26, (a0)
 ; LMULMAX1-RV64-NEXT:    vsrl.vi v27, v25, 1
@@ -706,8 +706,8 @@ define void @ctpop_v8i32(<8 x i32>* %x, <8 x i32>* %y) {
 ;
 ; LMULMAX1-RV32-LABEL: ctpop_v8i32:
 ; LMULMAX1-RV32:       # %bb.0:
-; LMULMAX1-RV32-NEXT:    vsetivli zero, 4, e32, m1, ta, mu
 ; LMULMAX1-RV32-NEXT:    addi a1, a0, 16
+; LMULMAX1-RV32-NEXT:    vsetivli zero, 4, e32, m1, ta, mu
 ; LMULMAX1-RV32-NEXT:    vle32.v v25, (a1)
 ; LMULMAX1-RV32-NEXT:    vle32.v v26, (a0)
 ; LMULMAX1-RV32-NEXT:    vsrl.vi v27, v25, 1
@@ -748,8 +748,8 @@ define void @ctpop_v8i32(<8 x i32>* %x, <8 x i32>* %y) {
 ;
 ; LMULMAX1-RV64-LABEL: ctpop_v8i32:
 ; LMULMAX1-RV64:       # %bb.0:
-; LMULMAX1-RV64-NEXT:    vsetivli zero, 4, e32, m1, ta, mu
 ; LMULMAX1-RV64-NEXT:    addi a1, a0, 16
+; LMULMAX1-RV64-NEXT:    vsetivli zero, 4, e32, m1, ta, mu
 ; LMULMAX1-RV64-NEXT:    vle32.v v25, (a1)
 ; LMULMAX1-RV64-NEXT:    vle32.v v26, (a0)
 ; LMULMAX1-RV64-NEXT:    vsrl.vi v27, v25, 1
@@ -888,8 +888,8 @@ define void @ctpop_v4i64(<4 x i64>* %x, <4 x i64>* %y) {
 ;
 ; LMULMAX1-RV32-LABEL: ctpop_v4i64:
 ; LMULMAX1-RV32:       # %bb.0:
-; LMULMAX1-RV32-NEXT:    vsetivli zero, 2, e64, m1, ta, mu
 ; LMULMAX1-RV32-NEXT:    addi a1, a0, 16
+; LMULMAX1-RV32-NEXT:    vsetivli zero, 2, e64, m1, ta, mu
 ; LMULMAX1-RV32-NEXT:    vle64.v v25, (a1)
 ; LMULMAX1-RV32-NEXT:    vle64.v v26, (a0)
 ; LMULMAX1-RV32-NEXT:    vsrl.vi v27, v25, 1
@@ -943,8 +943,8 @@ define void @ctpop_v4i64(<4 x i64>* %x, <4 x i64>* %y) {
 ;
 ; LMULMAX1-RV64-LABEL: ctpop_v4i64:
 ; LMULMAX1-RV64:       # %bb.0:
-; LMULMAX1-RV64-NEXT:    vsetivli zero, 2, e64, m1, ta, mu
 ; LMULMAX1-RV64-NEXT:    addi a6, a0, 16
+; LMULMAX1-RV64-NEXT:    vsetivli zero, 2, e64, m1, ta, mu
 ; LMULMAX1-RV64-NEXT:    vle64.v v25, (a6)
 ; LMULMAX1-RV64-NEXT:    vle64.v v26, (a0)
 ; LMULMAX1-RV64-NEXT:    vsrl.vi v27, v25, 1

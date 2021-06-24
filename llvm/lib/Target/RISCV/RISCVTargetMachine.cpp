@@ -140,6 +140,8 @@ public:
   void addPreEmitPass2() override;
   void addPreSched2() override;
   void addPreRegAlloc() override;
+  void addFastRegAlloc() override;
+  void addOptimizedRegAlloc() override;
 };
 } // namespace
 
@@ -193,5 +195,16 @@ void RISCVPassConfig::addPreEmitPass2() {
 void RISCVPassConfig::addPreRegAlloc() {
   if (TM->getOptLevel() != CodeGenOpt::None)
     addPass(createRISCVMergeBaseOffsetOptPass());
-  addPass(createRISCVInsertVSETVLIPass());
+}
+
+void RISCVPassConfig::addFastRegAlloc() {
+  insertPass(&TwoAddressInstructionPassID, &RISCVInsertVSETVLIID);
+
+  TargetPassConfig::addFastRegAlloc();
+}
+
+void RISCVPassConfig::addOptimizedRegAlloc() {
+  insertPass(&MachineSchedulerID, &RISCVInsertVSETVLIID);
+
+  TargetPassConfig::addOptimizedRegAlloc();
 }

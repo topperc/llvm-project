@@ -715,16 +715,16 @@ define void @test_srem_vec(<3 x i33>* %X) nounwind {
 ; RV32MV-NEXT:    vsetivli zero, 1, e8, mf8, ta, mu
 ; RV32MV-NEXT:    vmv.s.x v0, a0
 ; RV32MV-NEXT:    vsetivli zero, 8, e32, m2, ta, mu
-; RV32MV-NEXT:    vmv.v.i v26, 1
 ; RV32MV-NEXT:    addi a0, sp, 32
-; RV32MV-NEXT:    vle32.v v28, (a0)
+; RV32MV-NEXT:    vle32.v v26, (a0)
 ; RV32MV-NEXT:    lui a0, %hi(.LCPI3_0)
 ; RV32MV-NEXT:    addi a0, a0, %lo(.LCPI3_0)
-; RV32MV-NEXT:    vle32.v v30, (a0)
-; RV32MV-NEXT:    vmerge.vim v26, v26, -1, v0
-; RV32MV-NEXT:    vand.vv v26, v28, v26
+; RV32MV-NEXT:    vle32.v v28, (a0)
+; RV32MV-NEXT:    vmv.v.i v30, 1
+; RV32MV-NEXT:    vmerge.vim v30, v30, -1, v0
+; RV32MV-NEXT:    vand.vv v26, v26, v30
 ; RV32MV-NEXT:    vsetivli zero, 4, e64, m2, ta, mu
-; RV32MV-NEXT:    vmsne.vv v0, v26, v30
+; RV32MV-NEXT:    vmsne.vv v0, v26, v28
 ; RV32MV-NEXT:    vmv.v.i v26, 0
 ; RV32MV-NEXT:    vmerge.vim v26, v26, -1, v0
 ; RV32MV-NEXT:    vsetvli zero, zero, e32, m2, ta, mu

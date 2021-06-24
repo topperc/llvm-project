@@ -586,12 +586,12 @@ define void @test_urem_vec(<3 x i11>* %X) nounwind {
 ; RV32MV-NEXT:    vand.vx v25, v25, a1
 ; RV32MV-NEXT:    vmv.v.i v27, 0
 ; RV32MV-NEXT:    addi a2, zero, 1
-; RV32MV-NEXT:    vsetvli zero, zero, e16, mf2, tu, mu
 ; RV32MV-NEXT:    vmv1r.v v28, v27
+; RV32MV-NEXT:    vsetvli zero, zero, e16, mf2, tu, mu
 ; RV32MV-NEXT:    vmv.s.x v28, a2
-; RV32MV-NEXT:    vsetvli zero, zero, e16, mf2, ta, mu
 ; RV32MV-NEXT:    lui a2, %hi(.LCPI4_1)
 ; RV32MV-NEXT:    addi a2, a2, %lo(.LCPI4_1)
+; RV32MV-NEXT:    vsetvli zero, zero, e16, mf2, ta, mu
 ; RV32MV-NEXT:    vle16.v v29, (a2)
 ; RV32MV-NEXT:    vsrl.vv v25, v25, v28
 ; RV32MV-NEXT:    vor.vv v25, v25, v26
@@ -651,12 +651,12 @@ define void @test_urem_vec(<3 x i11>* %X) nounwind {
 ; RV64MV-NEXT:    vand.vx v25, v25, a1
 ; RV64MV-NEXT:    vmv.v.i v27, 0
 ; RV64MV-NEXT:    addi a2, zero, 1
-; RV64MV-NEXT:    vsetvli zero, zero, e16, mf2, tu, mu
 ; RV64MV-NEXT:    vmv1r.v v28, v27
+; RV64MV-NEXT:    vsetvli zero, zero, e16, mf2, tu, mu
 ; RV64MV-NEXT:    vmv.s.x v28, a2
-; RV64MV-NEXT:    vsetvli zero, zero, e16, mf2, ta, mu
 ; RV64MV-NEXT:    lui a2, %hi(.LCPI4_1)
 ; RV64MV-NEXT:    addi a2, a2, %lo(.LCPI4_1)
+; RV64MV-NEXT:    vsetvli zero, zero, e16, mf2, ta, mu
 ; RV64MV-NEXT:    vle16.v v29, (a2)
 ; RV64MV-NEXT:    vsrl.vv v25, v25, v28
 ; RV64MV-NEXT:    vor.vv v25, v25, v26

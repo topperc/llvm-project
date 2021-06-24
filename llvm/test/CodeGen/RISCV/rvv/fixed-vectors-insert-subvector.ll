@@ -54,10 +54,10 @@ define <vscale x 8 x i32> @insert_nxv8i32_v8i32_0(<vscale x 8 x i32> %vec, <8 x 
 ;
 ; LMULMAX1-LABEL: insert_nxv8i32_v8i32_0:
 ; LMULMAX1:       # %bb.0:
+; LMULMAX1-NEXT:    addi a1, a0, 16
 ; LMULMAX1-NEXT:    vsetivli zero, 4, e32, m1, ta, mu
 ; LMULMAX1-NEXT:    vle32.v v28, (a0)
-; LMULMAX1-NEXT:    addi a0, a0, 16
-; LMULMAX1-NEXT:    vle32.v v12, (a0)
+; LMULMAX1-NEXT:    vle32.v v12, (a1)
 ; LMULMAX1-NEXT:    vsetivli zero, 4, e32, m4, tu, mu
 ; LMULMAX1-NEXT:    vslideup.vi v8, v28, 0
 ; LMULMAX1-NEXT:    vsetivli zero, 8, e32, m4, tu, mu
@@ -79,10 +79,10 @@ define <vscale x 8 x i32> @insert_nxv8i32_v8i32_8(<vscale x 8 x i32> %vec, <8 x 
 ;
 ; LMULMAX1-LABEL: insert_nxv8i32_v8i32_8:
 ; LMULMAX1:       # %bb.0:
+; LMULMAX1-NEXT:    addi a1, a0, 16
 ; LMULMAX1-NEXT:    vsetivli zero, 4, e32, m1, ta, mu
 ; LMULMAX1-NEXT:    vle32.v v28, (a0)
-; LMULMAX1-NEXT:    addi a0, a0, 16
-; LMULMAX1-NEXT:    vle32.v v12, (a0)
+; LMULMAX1-NEXT:    vle32.v v12, (a1)
 ; LMULMAX1-NEXT:    vsetivli zero, 12, e32, m4, tu, mu
 ; LMULMAX1-NEXT:    vslideup.vi v8, v28, 8
 ; LMULMAX1-NEXT:    vsetivli zero, 16, e32, m4, tu, mu

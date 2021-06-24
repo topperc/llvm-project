@@ -59,32 +59,30 @@ define <4 x float> @hang_when_merging_stores_after_legalization(<8 x float> %x, 
 ; LMULMAX2:       # %bb.0:
 ; LMULMAX2-NEXT:    vsetivli zero, 4, e32, m1, ta, mu
 ; LMULMAX2-NEXT:    vmv.v.i v25, 0
-; LMULMAX2-NEXT:    vrgather.vv v26, v8, v25
+; LMULMAX2-NEXT:    lui a0, %hi(.LCPI1_0)
+; LMULMAX2-NEXT:    addi a0, a0, %lo(.LCPI1_0)
+; LMULMAX2-NEXT:    vle32.v v26, (a0)
+; LMULMAX2-NEXT:    vrgather.vv v27, v8, v25
 ; LMULMAX2-NEXT:    addi a0, zero, 2
 ; LMULMAX2-NEXT:    vsetivli zero, 1, e8, mf8, ta, mu
 ; LMULMAX2-NEXT:    vmv.s.x v0, a0
-; LMULMAX2-NEXT:    lui a0, %hi(.LCPI1_0)
-; LMULMAX2-NEXT:    addi a0, a0, %lo(.LCPI1_0)
-; LMULMAX2-NEXT:    vsetivli zero, 4, e32, m1, ta, mu
-; LMULMAX2-NEXT:    vle32.v v27, (a0)
-; LMULMAX2-NEXT:    vsetvli zero, zero, e32, m1, tu, mu
-; LMULMAX2-NEXT:    vrgather.vv v26, v9, v27, v0.t
+; LMULMAX2-NEXT:    vsetivli zero, 4, e32, m1, tu, mu
+; LMULMAX2-NEXT:    vrgather.vv v27, v9, v26, v0.t
+; LMULMAX2-NEXT:    lui a0, %hi(.LCPI1_1)
+; LMULMAX2-NEXT:    addi a0, a0, %lo(.LCPI1_1)
 ; LMULMAX2-NEXT:    vsetvli zero, zero, e32, m1, ta, mu
-; LMULMAX2-NEXT:    vrgather.vv v27, v10, v25
+; LMULMAX2-NEXT:    vle32.v v26, (a0)
+; LMULMAX2-NEXT:    vrgather.vv v28, v10, v25
 ; LMULMAX2-NEXT:    addi a0, zero, 8
 ; LMULMAX2-NEXT:    vsetivli zero, 1, e8, mf8, ta, mu
 ; LMULMAX2-NEXT:    vmv.s.x v0, a0
-; LMULMAX2-NEXT:    lui a0, %hi(.LCPI1_1)
-; LMULMAX2-NEXT:    addi a0, a0, %lo(.LCPI1_1)
-; LMULMAX2-NEXT:    vsetivli zero, 4, e32, m1, ta, mu
-; LMULMAX2-NEXT:    vle32.v v25, (a0)
-; LMULMAX2-NEXT:    vsetvli zero, zero, e32, m1, tu, mu
-; LMULMAX2-NEXT:    vrgather.vv v27, v11, v25, v0.t
+; LMULMAX2-NEXT:    vsetivli zero, 4, e32, m1, tu, mu
+; LMULMAX2-NEXT:    vrgather.vv v28, v11, v26, v0.t
 ; LMULMAX2-NEXT:    addi a0, zero, 3
 ; LMULMAX2-NEXT:    vsetivli zero, 1, e8, mf8, ta, mu
 ; LMULMAX2-NEXT:    vmv.s.x v0, a0
 ; LMULMAX2-NEXT:    vsetivli zero, 4, e32, m1, ta, mu
-; LMULMAX2-NEXT:    vmerge.vvm v8, v27, v26, v0
+; LMULMAX2-NEXT:    vmerge.vvm v8, v28, v27, v0
 ; LMULMAX2-NEXT:    ret
   %z = shufflevector <8 x float> %x, <8 x float> %y, <4 x i32> <i32 0, i32 7, i32 8, i32 15>
   ret <4 x float> %z
@@ -93,9 +91,9 @@ define <4 x float> @hang_when_merging_stores_after_legalization(<8 x float> %x, 
 define void @buildvec_dominant0_v4f32(<4 x float>* %x) {
 ; CHECK-LABEL: buildvec_dominant0_v4f32:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vsetivli zero, 4, e32, m1, ta, mu
 ; CHECK-NEXT:    lui a1, %hi(.LCPI2_0)
 ; CHECK-NEXT:    addi a1, a1, %lo(.LCPI2_0)
+; CHECK-NEXT:    vsetivli zero, 4, e32, m1, ta, mu
 ; CHECK-NEXT:    vlse32.v v25, (a1), zero
 ; CHECK-NEXT:    fmv.w.x ft0, zero
 ; CHECK-NEXT:    vfmv.s.f v26, ft0

@@ -45,28 +45,28 @@ define void @insertelt_v3i64(<3 x i64>* %x, i64 %y) {
 ; RV32:       # %bb.0:
 ; RV32-NEXT:    vsetivli zero, 2, e64, m1, ta, mu
 ; RV32-NEXT:    vle64.v v26, (a0)
-; RV32-NEXT:    vsetivli zero, 8, e32, m2, ta, mu
-; RV32-NEXT:    vmv.v.i v28, 0
-; RV32-NEXT:    vsetivli zero, 2, e64, m2, tu, mu
-; RV32-NEXT:    vslideup.vi v28, v26, 0
 ; RV32-NEXT:    lw a3, 16(a0)
 ; RV32-NEXT:    addi a4, a0, 20
 ; RV32-NEXT:    vsetivli zero, 4, e32, m1, ta, mu
-; RV32-NEXT:    vlse32.v v26, (a4), zero
-; RV32-NEXT:    vsetvli zero, zero, e32, m1, tu, mu
-; RV32-NEXT:    vmv.s.x v26, a3
+; RV32-NEXT:    vlse32.v v28, (a4), zero
+; RV32-NEXT:    vsetivli zero, 8, e32, m2, ta, mu
+; RV32-NEXT:    vmv.v.i v30, 0
+; RV32-NEXT:    vsetivli zero, 2, e64, m2, tu, mu
+; RV32-NEXT:    vslideup.vi v30, v26, 0
+; RV32-NEXT:    vsetivli zero, 4, e32, m1, tu, mu
+; RV32-NEXT:    vmv.s.x v28, a3
 ; RV32-NEXT:    vsetvli zero, zero, e64, m2, tu, mu
-; RV32-NEXT:    vslideup.vi v28, v26, 2
+; RV32-NEXT:    vslideup.vi v30, v28, 2
 ; RV32-NEXT:    vsetivli zero, 2, e32, m2, ta, mu
 ; RV32-NEXT:    vmv.v.i v26, 0
-; RV32-NEXT:    vslide1up.vx v30, v26, a2
-; RV32-NEXT:    vslide1up.vx v26, v30, a1
+; RV32-NEXT:    vslide1up.vx v28, v26, a2
+; RV32-NEXT:    vslide1up.vx v26, v28, a1
 ; RV32-NEXT:    vsetivli zero, 3, e64, m2, tu, mu
-; RV32-NEXT:    vslideup.vi v28, v26, 2
+; RV32-NEXT:    vslideup.vi v30, v26, 2
 ; RV32-NEXT:    sw a1, 16(a0)
 ; RV32-NEXT:    sw a2, 20(a0)
 ; RV32-NEXT:    vsetivli zero, 2, e64, m1, ta, mu
-; RV32-NEXT:    vse64.v v28, (a0)
+; RV32-NEXT:    vse64.v v30, (a0)
 ; RV32-NEXT:    ret
 ;
 ; RV64-LABEL: insertelt_v3i64:
@@ -267,11 +267,11 @@ define void @insertelt_c6_v8i64_0_add(<8 x i64>* %x, <8 x i64>* %y) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vsetivli zero, 8, e64, m4, ta, mu
 ; CHECK-NEXT:    vle64.v v28, (a0)
-; CHECK-NEXT:    addi a2, zero, 6
-; CHECK-NEXT:    vsetvli zero, zero, e64, m4, tu, mu
-; CHECK-NEXT:    vmv.s.x v28, a2
-; CHECK-NEXT:    vsetvli zero, zero, e64, m4, ta, mu
 ; CHECK-NEXT:    vle64.v v8, (a1)
+; CHECK-NEXT:    addi a1, zero, 6
+; CHECK-NEXT:    vsetvli zero, zero, e64, m4, tu, mu
+; CHECK-NEXT:    vmv.s.x v28, a1
+; CHECK-NEXT:    vsetvli zero, zero, e64, m4, ta, mu
 ; CHECK-NEXT:    vadd.vv v28, v28, v8
 ; CHECK-NEXT:    vse64.v v28, (a0)
 ; CHECK-NEXT:    ret
