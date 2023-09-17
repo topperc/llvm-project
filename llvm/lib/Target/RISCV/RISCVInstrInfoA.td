@@ -132,15 +132,15 @@ let Predicates = [HasAtomicLdSt, IsRV64] in {
 multiclass AMOPat<string AtomicOp, string BaseInst, ValueType vt = XLenVT> {
 let Predicates = [HasStdExtA, NotHasStdExtZtso] in {
   def : PatGprGpr<!cast<PatFrag>(AtomicOp#"_monotonic"),
-                  !cast<RVInst>(BaseInst), vt>;
+                  !cast<RVInst>(BaseInst), vt, vt>;
   def : PatGprGpr<!cast<PatFrag>(AtomicOp#"_acquire"),
-                  !cast<RVInst>(BaseInst#"_AQ"), vt>;
+                  !cast<RVInst>(BaseInst#"_AQ"), vt, vt>;
   def : PatGprGpr<!cast<PatFrag>(AtomicOp#"_release"),
-                  !cast<RVInst>(BaseInst#"_RL"), vt>;
+                  !cast<RVInst>(BaseInst#"_RL"), vt, vt>;
   def : PatGprGpr<!cast<PatFrag>(AtomicOp#"_acq_rel"),
-                  !cast<RVInst>(BaseInst#"_AQ_RL"), vt>;
+                  !cast<RVInst>(BaseInst#"_AQ_RL"), vt, vt>;
   def : PatGprGpr<!cast<PatFrag>(AtomicOp#"_seq_cst"),
-                  !cast<RVInst>(BaseInst#"_AQ_RL"), vt>;
+                  !cast<RVInst>(BaseInst#"_AQ_RL"), vt, vt>;
 }
 let Predicates = [HasStdExtA, HasStdExtZtso] in {
   def : PatGprGpr<!cast<PatFrag>(AtomicOp#"_monotonic"),

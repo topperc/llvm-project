@@ -1226,11 +1226,13 @@ def : InstAlias<".insn_s $opcode, $funct3, $rs2, ${imm12}(${rs1})",
 
 class PatGpr<SDPatternOperator OpNode, RVInst Inst, ValueType vt = XLenVT>
     : Pat<(vt (OpNode (vt GPR:$rs1))), (Inst GPR:$rs1)>;
-class PatGprGpr<SDPatternOperator OpNode, RVInst Inst, ValueType vt = XLenVT>
-    : Pat<(vt (OpNode (vt GPR:$rs1), (vt GPR:$rs2))), (Inst GPR:$rs1, GPR:$rs2)>;
+class PatGprGpr<SDPatternOperator OpNode, RVInst Inst, ValueType vt1 = XLenVT,
+                ValueType vt2 = XLenVT>
+    : Pat<(vt1 (OpNode (vt1 GPR:$rs1), (vt2 GPR:$rs2))), (Inst GPR:$rs1, GPR:$rs2)>;
 
-class PatGprImm<SDPatternOperator OpNode, RVInst Inst, ImmLeaf ImmType>
-    : Pat<(XLenVT (OpNode (XLenVT GPR:$rs1), ImmType:$imm)),
+class PatGprImm<SDPatternOperator OpNode, RVInst Inst, ImmLeaf ImmType,
+                ValueType vt = XLenVT>
+    : Pat<(vt (OpNode (vt GPR:$rs1), ImmType:$imm)),
           (Inst GPR:$rs1, ImmType:$imm)>;
 class PatGprSimm12<SDPatternOperator OpNode, RVInstI Inst>
     : PatGprImm<OpNode, Inst, simm12>;
@@ -1943,6 +1945,72 @@ let Predicates = [IsRV64] in {
 def : Pat<(binop_allwusers<add> GPR:$rs1, (AddiPair:$rs2)),
           (ADDIW (ADDIW GPR:$rs1, (AddiPairImmLarge AddiPair:$rs2)),
                  (AddiPairImmSmall AddiPair:$rs2))>;
+}
+
+//===----------------------------------------------------------------------===//
+// Experimental RV64 i32 legalization patterns.
+//===----------------------------------------------------------------------===//
+
+def simm12i32 : Operand<i32>, ImmLeaf<i32, [{return isInt<12>(Imm);}]> {
+  let ParserMatchClass = SImmAsmOperand<12>;
+  let EncoderMethod = "getImmOpValue";
+  let DecoderMethod = "decodeSImmOperand<12>";
+  let MCOperandPredicate = [{
+    int64_t Imm;
+    if (MCOp.evaluateAsConstantImm(Imm))
+      return isInt<12>(Imm);
+    return MCOp.isBareSymbolRef();
+  }];
+  let OperandType = "OPERAND_SIMM12";
+  let OperandNamespace = "RISCVOp";
+}
+
+def uimm5i32 : Operand<i32>, ImmLeaf<i32, [{return isUInt<5>(Imm);}]> {
+  let ParserMatchClass = UImmAsmOperand<5>;
+  let DecoderMethod = "decodeUImmOperand<5>";
+  let OperandType = "OPERAND_UIMM5";
+  let OperandNamespace = "RISCVOp";
+}
+
+let IsSignExtendingOpW = 1, isCodeGenOnly = 1 in {
+let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
+def ADDIW32 : RVInstI<0b000, OPC_OP_IMM_32, (outs GPR:$rd),
+                      (ins GPR:$rs1, simm12i32:$imm12),
+                      "addiw", "$rd, $rs1, $imm12">,
+              Sched<[WriteIALU32, ReadIALU32]>;
+}
+
+let Predicates = [IsRV64] in {
+def : LdPat<sextloadi8, LB, i32>;
+def : LdPat<extloadi8, LBU, i32>; // Prefer unsigned due to no c.lb in Zcb.
+def : LdPat<sextloadi16, LH, i32>;
+def : LdPat<extloadi16, LH, i32>;
+def : LdPat<load, LW, i32>;
+def : LdPat<zextloadi8, LBU, i32>;
+def : LdPat<zextloadi16, LHU, i32>;
+
+def : StPat<truncstorei8, SB, GPR, i32>;
+def : StPat<truncstorei16, SH, GPR, i32>;
+def : StPat<store, SW, GPR, i32>;
+
+def : Pat<(anyext GPR:$src), (COPY GPR:$src)>;
+def : Pat<(sext GPR:$src), (ADDIW GPR:$src, 0)>;
+def : Pat<(trunc GPR:$src), (COPY GPR:$src)>;
+
+def : PatGprGpr<add, ADDW, i32, i32>;
+def : PatGprGpr<sub, SUBW, i32, i32>;
+def : PatGprGpr<shiftopw<shl>, SLLW, i32, i64>;
+def : PatGprGpr<shiftopw<srl>, SRLW, i32, i64>;
+def : PatGprGpr<shiftopw<sra>, SRAW, i32, i64>;
+
+def : PatGprImm<add, ADDIW32, simm12i32, i32>;
+def : PatGprImm<shl, SLLIW, uimm5, i32>;
+def : PatGprImm<srl, SRLIW, uimm5, i32>;
+def : PatGprImm<sra, SRAIW, uimm5, i32>;
+}
+
+let Predicates = [IsRV64, NotHasStdExtZba] in {
+def : Pat<(zext GPR:$src), (SRLI (SLLI GPR:$src, 32), 32)>;
 }
 
 //===----------------------------------------------------------------------===//

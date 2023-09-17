@@ -537,7 +537,7 @@ def SplitF64Pseudo_INX
              [(set GPR:$dst1, GPR:$dst2, (RISCVSplitF64 FPR64IN32X:$src))]>;
 } // Predicates = [HasStdExtZdinx, IsRV32]
 
-let Predicates = [HasStdExtD, IsRV32] in {
+let Predicates = [HasStdExtD] in {
 
 // double->[u]int. Round-to-zero must be used.
 def : Pat<(i32 (any_fp_to_sint FPR64:$rs1)), (FCVT_W_D FPR64:$rs1, FRM_RTZ)>;
@@ -556,7 +556,7 @@ def : Pat<(i32 (any_lround FPR64:$rs1)), (FCVT_W_D $rs1, FRM_RMM)>;
 // [u]int->double.
 def : Pat<(any_sint_to_fp (i32 GPR:$rs1)), (FCVT_D_W GPR:$rs1)>;
 def : Pat<(any_uint_to_fp (i32 GPR:$rs1)), (FCVT_D_WU GPR:$rs1)>;
-} // Predicates = [HasStdExtD, IsRV32]
+} // Predicates = [HasStdExtD]
 
 let Predicates = [HasStdExtZdinx, IsRV32] in {
 
