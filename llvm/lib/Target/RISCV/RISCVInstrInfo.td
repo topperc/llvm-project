@@ -1699,7 +1699,7 @@ def : LdPat<sextloadi8, LB>;
 def : LdPat<extloadi8, LBU>; // Prefer unsigned due to no c.lb in Zcb.
 def : LdPat<sextloadi16, LH>;
 def : LdPat<extloadi16, LH>;
-def : LdPat<load, LW, i32>, Requires<[IsRV32]>;
+def : LdPat<load, LW, i32>;
 def : LdPat<zextloadi8, LBU>;
 def : LdPat<zextloadi16, LHU>;
 
@@ -1713,7 +1713,7 @@ class StPat<PatFrag StoreOp, RVInst Inst, RegisterClass StTy,
 
 def : StPat<truncstorei8, SB, GPR, XLenVT>;
 def : StPat<truncstorei16, SH, GPR, XLenVT>;
-def : StPat<store, SW, GPR, i32>, Requires<[IsRV32]>;
+def : StPat<store, SW, GPR, i32>;
 
 /// Fences
 
@@ -1985,13 +1985,11 @@ def : LdPat<sextloadi8, LB, i32>;
 def : LdPat<extloadi8, LBU, i32>; // Prefer unsigned due to no c.lb in Zcb.
 def : LdPat<sextloadi16, LH, i32>;
 def : LdPat<extloadi16, LH, i32>;
-def : LdPat<load, LW, i32>;
 def : LdPat<zextloadi8, LBU, i32>;
 def : LdPat<zextloadi16, LHU, i32>;
 
 def : StPat<truncstorei8, SB, GPR, i32>;
 def : StPat<truncstorei16, SH, GPR, i32>;
-def : StPat<store, SW, GPR, i32>;
 
 def : Pat<(anyext GPR:$src), (COPY GPR:$src)>;
 def : Pat<(sext GPR:$src), (ADDIW GPR:$src, 0)>;
