@@ -76,7 +76,8 @@ static cl::opt<int>
 
 static cl::opt<bool>
     RV64LegalI32("riscv-experimental-rv64-legal-i32", cl::ReallyHidden,
-                 cl::desc("Make i32 a legal type for SelectionDAG on RV64."));
+                 cl::desc("Make i32 a legal type for SelectionDAG on RV64."),
+                 cl::init(true));
 
 RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
                                          const RISCVSubtarget &STI)
