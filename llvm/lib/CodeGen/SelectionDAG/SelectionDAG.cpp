@@ -10129,10 +10129,9 @@ SDVTList SelectionDAG::getVTList(EVT VT1, EVT VT2) {
   void *IP = nullptr;
   SDVTListNode *Result = VTListMap.FindNodeOrInsertPos(ID, IP);
   if (!Result) {
-    EVT *Array = Allocator.Allocate<EVT>(2);
-    Array[0] = VT1;
-    Array[1] = VT2;
-    Result = new (Allocator) SDVTListNode(ID.Intern(Allocator), Array, 2);
+    void *Mem = Allocator.Allocate(SDVTListNode::totalSizeToAlloc<EVT>(2),
+                                   alignof(SDVTListNode));
+    Result = new (Mem) SDVTListNode(ID.Intern(Allocator), {VT1, VT2});
     VTListMap.InsertNode(Result, IP);
   }
   return Result->getSDVTList();
@@ -10148,11 +10147,9 @@ SDVTList SelectionDAG::getVTList(EVT VT1, EVT VT2, EVT VT3) {
   void *IP = nullptr;
   SDVTListNode *Result = VTListMap.FindNodeOrInsertPos(ID, IP);
   if (!Result) {
-    EVT *Array = Allocator.Allocate<EVT>(3);
-    Array[0] = VT1;
-    Array[1] = VT2;
-    Array[2] = VT3;
-    Result = new (Allocator) SDVTListNode(ID.Intern(Allocator), Array, 3);
+    void *Mem = Allocator.Allocate(SDVTListNode::totalSizeToAlloc<EVT>(3),
+                                   alignof(SDVTListNode));
+    Result = new (Mem) SDVTListNode(ID.Intern(Allocator), {VT1, VT2, VT3});
     VTListMap.InsertNode(Result, IP);
   }
   return Result->getSDVTList();
@@ -10169,12 +10166,9 @@ SDVTList SelectionDAG::getVTList(EVT VT1, EVT VT2, EVT VT3, EVT VT4) {
   void *IP = nullptr;
   SDVTListNode *Result = VTListMap.FindNodeOrInsertPos(ID, IP);
   if (!Result) {
-    EVT *Array = Allocator.Allocate<EVT>(4);
-    Array[0] = VT1;
-    Array[1] = VT2;
-    Array[2] = VT3;
-    Array[3] = VT4;
-    Result = new (Allocator) SDVTListNode(ID.Intern(Allocator), Array, 4);
+    void *Mem = Allocator.Allocate(SDVTListNode::totalSizeToAlloc<EVT>(4),
+                                   alignof(SDVTListNode));
+    Result = new (Mem) SDVTListNode(ID.Intern(Allocator), {VT1, VT2, VT3, VT4});
     VTListMap.InsertNode(Result, IP);
   }
   return Result->getSDVTList();
@@ -10191,9 +10185,9 @@ SDVTList SelectionDAG::getVTList(ArrayRef<EVT> VTs) {
   void *IP = nullptr;
   SDVTListNode *Result = VTListMap.FindNodeOrInsertPos(ID, IP);
   if (!Result) {
-    EVT *Array = Allocator.Allocate<EVT>(NumVTs);
-    llvm::copy(VTs, Array);
-    Result = new (Allocator) SDVTListNode(ID.Intern(Allocator), Array, NumVTs);
+    void *Mem = Allocator.Allocate(SDVTListNode::totalSizeToAlloc<EVT>(NumVTs),
+                                   alignof(SDVTListNode));
+    Result = new (Mem) SDVTListNode(ID.Intern(Allocator), VTs);
     VTListMap.InsertNode(Result, IP);
   }
   return Result->getSDVTList();

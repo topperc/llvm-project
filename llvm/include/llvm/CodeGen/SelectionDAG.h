@@ -93,7 +93,8 @@ using SSAContext = GenericSSAContext<Function>;
 template <typename T> class GenericUniformityInfo;
 using UniformityInfo = GenericUniformityInfo<SSAContext>;
 
-class SDVTListNode : public FoldingSetNode {
+class SDVTListNode final : public FoldingSetNode,
+                           public TrailingObjects<SDVTListNode, EVT> {
   friend struct FoldingSetTrait<SDVTListNode>;
 
   /// A reference to an Interned FoldingSetNodeID for this node.
@@ -102,22 +103,25 @@ class SDVTListNode : public FoldingSetNode {
   /// The size of this list is not expected to be big so it won't introduce
   /// a memory penalty.
   FoldingSetNodeIDRef FastID;
-  const EVT *VTs;
   unsigned int NumVTs;
   /// The hash value for SDVTList is fixed, so cache it to avoid
   /// hash calculation.
   unsigned HashValue;
 
 public:
-  SDVTListNode(const FoldingSetNodeIDRef ID, const EVT *VT, unsigned int Num) :
-      FastID(ID), VTs(VT), NumVTs(Num) {
+  SDVTListNode(const FoldingSetNodeIDRef ID, ArrayRef<EVT> VTs)
+      : FastID(ID), NumVTs(VTs.size()) {
+    std::uninitialized_copy(VTs.begin(), VTs.end(), getTrailingObjects<EVT>());
     HashValue = ID.ComputeHash();
   }
 
   SDVTList getSDVTList() {
-    SDVTList result = {VTs, NumVTs};
+    SDVTList result = {getTrailingObjects<EVT>(), NumVTs};
     return result;
   }
+
+  // Do not use sized deallocation due to trailing objects.
+  void operator delete(void *p) { ::operator delete(p); }
 };
 
 /// Specialize FoldingSetTrait for SDVTListNode
