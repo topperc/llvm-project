@@ -641,7 +641,7 @@ private:
   DebugLoc debugLoc;
 
   /// Return a pointer to the specified value type.
-  static const EVT *getValueTypeList(EVT VT);
+  static const EVT *getValueTypeList(MVT VT);
 
   SDNodeFlags Flags;
 
@@ -1095,7 +1095,7 @@ public:
   void addUse(SDUse &U) { U.addToList(&UseList); }
 
 protected:
-  static SDVTList getSDVTList(EVT VT) {
+  static SDVTList getSDVTList(MVT VT) {
     SDVTList Ret = { getValueTypeList(VT), 1 };
     return Ret;
   }
