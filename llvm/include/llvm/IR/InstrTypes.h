@@ -1420,11 +1420,11 @@ public:
   /// Wrappers for getting the \c Use of a call argument.
   const Use &getArgOperandUse(unsigned i) const {
     assert(i < arg_size() && "Out of bounds!");
-    return User::getOperandUse(i);
+    return getOperandUse(i);
   }
   Use &getArgOperandUse(unsigned i) {
     assert(i < arg_size() && "Out of bounds!");
-    return User::getOperandUse(i);
+    return getOperandUse(i);
   }
 
   bool isArgOperand(const Use *U) const {

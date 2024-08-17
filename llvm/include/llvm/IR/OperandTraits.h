@@ -111,6 +111,8 @@ struct HungoffOperandTraits {
   public: \
   inline VALUECLASS *getOperand(unsigned) const; \
   inline void setOperand(unsigned, VALUECLASS*); \
+  inline const Use &getOperandUse(unsigned) const; \
+  inline Use &getOperandUse(unsigned); \
   inline op_iterator op_begin(); \
   inline const_op_iterator op_begin() const; \
   inline op_iterator op_end(); \
@@ -145,6 +147,16 @@ void CLASS::setOperand(unsigned i_nocapture, VALUECLASS *Val_nocapture) { \
   assert(i_nocapture < OperandTraits<CLASS>::operands(this) \
          && "setOperand() out of range!"); \
   OperandTraits<CLASS>::op_begin(this)[i_nocapture] = Val_nocapture; \
+} \
+const Use &CLASS::getOperandUse(unsigned i_nocapture) const { \
+  assert(i_nocapture < OperandTraits<CLASS>::operands(this) \
+         && "getOperandUse() out of range!"); \
+  return OperandTraits<CLASS>::op_begin(const_cast<CLASS*>(this))[i_nocapture]; \
+} \
+Use &CLASS::getOperandUse(unsigned i_nocapture) { \
+  assert(i_nocapture < OperandTraits<CLASS>::operands(this) \
+         && "getOperandUse() out of range!"); \
+  return OperandTraits<CLASS>::op_begin(this)[i_nocapture]; \
 } \
 unsigned CLASS::getNumOperands() const { \
   return OperandTraits<CLASS>::operands(this); \
