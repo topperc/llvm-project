@@ -133,6 +133,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeRISCVTarget() {
   initializeRISCVPostRAExpandPseudoPass(*PR);
   initializeRISCVMergeBaseOffsetOptPass(*PR);
   initializeRISCVOptWInstrsPass(*PR);
+  initializeRISCVFoldMemOffsetPass(*PR);
   initializeRISCVPreRAExpandPseudoPass(*PR);
   initializeRISCVExpandPseudoPass(*PR);
   initializeRISCVVectorPeepholePass(*PR);
@@ -587,6 +588,7 @@ void RISCVPassConfig::addPreEmitPass2() {
 
 void RISCVPassConfig::addMachineSSAOptimization() {
   addPass(createRISCVVectorPeepholePass());
+  addPass(createRISCVFoldMemOffsetPass());
 
   TargetPassConfig::addMachineSSAOptimization();
 
