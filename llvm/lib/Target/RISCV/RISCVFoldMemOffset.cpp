@@ -32,7 +32,8 @@ public:
   bool runOnMachineFunction(MachineFunction &MF) override;
 
   bool allUsersFoldable(MachineInstr &MI, int64_t Offset,
-                        SmallVectorImpl<std::pair<MachineInstr *, int64_t>> &FoldableInstrs);
+                        SmallVectorImpl<std::pair<MachineInstr *, int64_t>> &FoldableInstrs,
+                        SmallPtrSetImpl<MachineInstr *> &Visited);
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
@@ -53,7 +54,11 @@ FunctionPass *llvm::createRISCVFoldMemOffsetPass() {
 }
 
 bool RISCVFoldMemOffset::allUsersFoldable(MachineInstr &MI, int64_t Offset,
-                                          SmallVectorImpl<std::pair<MachineInstr *, int64_t>> &FoldableInstrs) {
+                                          SmallVectorImpl<std::pair<MachineInstr *, int64_t>> &FoldableInstrs,
+                                          SmallPtrSetImpl<MachineInstr *> &Visited) {
+  if (!Visited.insert(&MI).second)
+    return false;
+
   for (auto &UserOp : MRI->use_nodbg_operands(MI.getOperand(0).getReg())) {
     MachineInstr *UserMI = UserOp.getParent();
     unsigned OpIdx = UserOp.getOperandNo();
@@ -64,39 +69,39 @@ bool RISCVFoldMemOffset::allUsersFoldable(MachineInstr &MI, int64_t Offset,
       return false;
     case RISCV::ADD:
     case RISCV::ADDI:
-      if (!allUsersFoldable(*UserMI, NewOffset, FoldableInstrs))
+      if (!allUsersFoldable(*UserMI, NewOffset, FoldableInstrs, Visited))
         return false;
       break;
     case RISCV::SUB: {
       if (OpIdx == 2)
         NewOffset = -static_cast<uint64_t>(NewOffset);
-      if (!allUsersFoldable(*UserMI, NewOffset, FoldableInstrs))
+      if (!allUsersFoldable(*UserMI, NewOffset, FoldableInstrs, Visited))
         return false;
       break;
     }
     case RISCV::SLLI: {
       unsigned ShAmt = UserMI->getOperand(2).getImm();
       NewOffset = static_cast<uint64_t>(NewOffset) << ShAmt;
-      if (!allUsersFoldable(*UserMI, NewOffset, FoldableInstrs))
+      if (!allUsersFoldable(*UserMI, NewOffset, FoldableInstrs, Visited))
         return false;
       break;
     }
     case RISCV::SH1ADD:
       if (OpIdx == 1)
         NewOffset = static_cast<uint64_t>(NewOffset) << 1;
-      if (!allUsersFoldable(*UserMI, NewOffset, FoldableInstrs))
+      if (!allUsersFoldable(*UserMI, NewOffset, FoldableInstrs, Visited))
         return false;
       break;
     case RISCV::SH2ADD:
       if (OpIdx == 1)
         NewOffset = static_cast<uint64_t>(NewOffset) << 2;
-      if (!allUsersFoldable(*UserMI, NewOffset, FoldableInstrs))
+      if (!allUsersFoldable(*UserMI, NewOffset, FoldableInstrs, Visited))
         return false;
       break;
     case RISCV::SH3ADD:
       if (OpIdx == 1)
         NewOffset = static_cast<uint64_t>(NewOffset) << 3;
-      if (!allUsersFoldable(*UserMI, NewOffset, FoldableInstrs))
+      if (!allUsersFoldable(*UserMI, NewOffset, FoldableInstrs, Visited))
         return false;
       break;
     case RISCV::ADD_UW:
@@ -106,7 +111,7 @@ bool RISCVFoldMemOffset::allUsersFoldable(MachineInstr &MI, int64_t Offset,
       // We can't sink addi through the zero extended input.
       if (OpIdx != 2)
         return false;
-      if (!allUsersFoldable(*UserMI, NewOffset, FoldableInstrs))
+      if (!allUsersFoldable(*UserMI, NewOffset, FoldableInstrs, Visited))
         return false;
       break;
     case RISCV::LB:
@@ -178,8 +183,9 @@ bool RISCVFoldMemOffset::runOnMachineFunction(MachineFunction &MF) {
       assert(isInt<12>(Offset));
 
       SmallVector<std::pair<MachineInstr *, int64_t>> FoldableInstrs;
+      SmallPtrSet<MachineInstr *, 8> Visited;
 
-      if (!allUsersFoldable(MI, Offset, FoldableInstrs))
+      if (!allUsersFoldable(MI, Offset, FoldableInstrs, Visited))
         continue;
 
       if (FoldableInstrs.empty())
