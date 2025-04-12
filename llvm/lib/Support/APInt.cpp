@@ -2418,6 +2418,9 @@ APInt::WordType APInt::tcAdd(WordType *dst, const WordType *rhs,
   assert(c <= 1);
 
   for (unsigned i = 0; i < parts; i++) {
+#if __has_builtin(__builtin_addcll)
+    c = __builtin_addcl(dst[i], rhs[i], c, &dst[i]);
+#else
     WordType l = dst[i];
     if (c) {
       dst[i] += rhs[i] + 1;
@@ -2426,6 +2429,7 @@ APInt::WordType APInt::tcAdd(WordType *dst, const WordType *rhs,
       dst[i] += rhs[i];
       c = (dst[i] < l);
     }
+#endif
   }
 
   return c;
