@@ -2419,13 +2419,8 @@ APInt::WordType APInt::tcAdd(WordType *dst, const WordType *rhs,
 
   for (unsigned i = 0; i < parts; i++) {
     WordType l = dst[i];
-    if (c) {
-      dst[i] += rhs[i] + 1;
-      c = (dst[i] <= l);
-    } else {
-      dst[i] += rhs[i];
-      c = (dst[i] < l);
-    }
+    dst[i] += rhs[i] + c;
+    c = dst[i] < l || (dst[i] == l && c);
   }
 
   return c;
