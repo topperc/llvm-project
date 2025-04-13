@@ -2418,6 +2418,22 @@ APInt::WordType APInt::tcAdd(WordType *dst, const WordType *rhs,
   assert(c <= 1);
 
   for (unsigned i = 0; i < parts; i++) {
+#if __has_builtin(__builtin_addcl)
+    if constexpr (std::is_same_v<unsigned long, uint64_t>) {
+      unsigned long carryout;
+      dst[i] = __builtin_addcl(dst[i], rhs[i], c, &carryout);
+      c = carryout;
+      continue;
+    }
+#endif
+#if __has_builtin(__builtin_addcll)
+    if constexpr (std::is_same_v<unsigned long long, uint64_t>) {
+      unsigned long long carryout;
+      dst[i] = __builtin_addcll(dst[i], rhs[i], c, &carryout);
+      c = carryout;
+      continue;
+    }
+#endif
     WordType l = dst[i];
     if (c) {
       dst[i] += rhs[i] + 1;
@@ -2453,6 +2469,22 @@ APInt::WordType APInt::tcSubtract(WordType *dst, const WordType *rhs,
   assert(c <= 1);
 
   for (unsigned i = 0; i < parts; i++) {
+#if __has_builtin(__builtin_subcl)
+    if constexpr (std::is_same_v<unsigned long, uint64_t>) {
+      unsigned long carryout;
+      dst[i] = __builtin_subcl(dst[i], rhs[i], c, &carryout);
+      c = carryout;
+      continue;
+    }
+#endif
+#if __has_builtin(__builtin_subcll)
+    if constexpr (std::is_same_v<unsigned long long, uint64_t>) {
+      unsigned long long carryout;
+      dst[i] = __builtin_subcll(dst[i], rhs[i], c, &carryout);
+      c = carryout;
+      continue;
+    }
+#endif
     WordType l = dst[i];
     if (c) {
       dst[i] -= rhs[i] + 1;
