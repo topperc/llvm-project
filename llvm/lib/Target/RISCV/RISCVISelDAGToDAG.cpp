@@ -3254,22 +3254,21 @@ bool RISCVDAGToDAGISel::selectSExtBits(SDValue N, unsigned Bits, SDValue &Val) {
     return true;
   }
 
-  auto UnwrapShlSra = [](SDValue N, unsigned ShiftAmt) {
-    if (N.getOpcode() != ISD::SRA || !isa<ConstantSDNode>(N.getOperand(1)))
-      return N;
-
+  // Look for a shift pair equivalent of (sext_inreg X, iBits).
+  if (N.getOpcode() == ISD::SRA && isa<ConstantSDNode>(N.getOperand(1))) {
     SDValue N0 = N.getOperand(0);
+    MVT VT = N.getSimpleValueType();
+    unsigned ShiftAmt = VT.getSizeInBits() - Bits;
     if (N0.getOpcode() == ISD::SHL && isa<ConstantSDNode>(N0.getOperand(1)) &&
         N.getConstantOperandVal(1) == ShiftAmt &&
-        N0.getConstantOperandVal(1) == ShiftAmt)
-      return N0.getOperand(0);
+        N0.getConstantOperandVal(1) == ShiftAmt) {
+      Val = N0.getOperand(0);
+      return true;
+    }
+  }
 
-    return N;
-  };
-
-  MVT VT = N.getSimpleValueType();
-  if (CurDAG->ComputeNumSignBits(N) > (VT.getSizeInBits() - Bits)) {
-    Val = UnwrapShlSra(N, VT.getSizeInBits() - Bits);
+  if (CurDAG->ComputeMaxSignificantBits(N) <= Bits) {
+    Val = N;
     return true;
   }
 
