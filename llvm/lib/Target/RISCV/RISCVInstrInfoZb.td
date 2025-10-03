@@ -808,7 +808,7 @@ multiclass Sh2Add_UWPat<Instruction sh2add_uw> {
 }
 
 multiclass Sh3Add_UWPat<Instruction sh3add_uw> {
-  def : Pat<(i64 (add_like_non_imm12 (and (shl GPR:$rs1, (i64 3)), 0x7FFFFFFFF),
+  def : Pat<(i64 (add_like_non_imm12 (and (shl GPR:$rs1, (i64 3)), (i64 0x7FFFFFFFF)),
                                      (XLenVT GPR:$rs2))),
             (sh3add_uw GPR:$rs1, GPR:$rs2)>;
   // Use SRLI to clear the LSBs and SHXADD_UW to mask and shift.
