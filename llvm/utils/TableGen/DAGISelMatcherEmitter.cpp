@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Basic/SDNodeProperties.h"
+#include "Basic/SequenceToOffsetTable.h"
 #include "Common/CodeGenDAGPatterns.h"
 #include "Common/CodeGenInstruction.h"
 #include "Common/CodeGenRegisters.h"
@@ -21,6 +22,7 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/TinyPtrVector.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/LEB128.h"
 #include "llvm/Support/SourceMgr.h"
@@ -73,6 +75,8 @@ class MatcherTableEmitter {
 
   std::map<ValueTypeByHwMode, unsigned> ValueTypeMap;
 
+  SequenceToOffsetTable<std::vector<uint8_t>> OperandTable;
+
   unsigned getPatternIdxFromTable(std::string &&P, std::string &&include_loc) {
     const auto [It, Inserted] =
         VecPatterns.try_emplace(std::move(P), VecPatterns.size());
@@ -85,7 +89,8 @@ class MatcherTableEmitter {
 
 public:
   MatcherTableEmitter(const Matcher *TheMatcher, const CodeGenDAGPatterns &cgp)
-      : CGP(cgp), OpcodeCounts(Matcher::HighestKind + 1, 0) {
+      : CGP(cgp), OpcodeCounts(Matcher::HighestKind + 1, 0),
+        OperandTable(std::nullopt) {
     // Record the usage of ComplexPattern.
     MapVector<const ComplexPattern *, unsigned> ComplexPatternUsage;
     // Record the usage of PatternPredicate.
@@ -111,10 +116,25 @@ public:
           ++PatternPredicateUsage[CPPM->getPredicate()];
         else if (auto *PM = dyn_cast<CheckPredicateMatcher>(N))
           ++PredicateUsage[PM->getPredicate().getOrigPatFragRecord()];
+
+        if (const auto *EN = dyn_cast<EmitNodeMatcherCommon>(N)) {
+          ArrayRef<unsigned> Ops = EN->getOperandList();
+          std::vector<uint8_t> OpBytes;
+          for (unsigned Op : Ops) {
+            uint8_t Buffer[5];
+            unsigned Len = encodeULEB128(Op, Buffer);
+            for (unsigned i = 0; i < Len; ++i)
+              OpBytes.push_back(Buffer[i]);
+          }
+          OperandTable.add(OpBytes);
+        }
+
         N = N->getNext();
       }
     };
     Statistic(TheMatcher);
+
+    OperandTable.layout();
 
     // Sort ComplexPatterns by usage.
     std::vector<std::pair<const ComplexPattern *, unsigned>> ComplexPatternList(
@@ -171,6 +191,8 @@ public:
 
   unsigned EmitMatcherList(const Matcher *N, const unsigned Indent,
                            unsigned StartIdx, raw_ostream &OS);
+
+  void EmitOperandLists(raw_ostream &OS);
 
   unsigned SizeMatcherList(Matcher *N, raw_ostream &OS);
 
@@ -1116,11 +1138,16 @@ unsigned MatcherTableEmitter::EmitMatcher(const Matcher *N,
     if (!OmitComments)
       OS << "/*#Ops*/";
     OS << ',';
-    unsigned NumOperandBytes = 0;
+
+    std::vector<uint8_t> OpBytes;
     for (unsigned i = 0, e = EN->getNumOperands(); i != e; ++i) {
-      OS << ' ';
-      NumOperandBytes += EmitVBRValue(EN->getOperand(i), OS);
+      uint8_t Buffer[5];
+      unsigned Len = encodeULEB128(EN->getOperand(i), Buffer);
+      for (unsigned i = 0; i < Len; ++i)
+        OpBytes.push_back(Buffer[i]);
     }
+    unsigned Index = OperandTable.get(OpBytes);
+    unsigned NumOperandBytes = EmitVBRValue(Index, OS);
 
     if (!OmitComments) {
       // Print the result #'s for EmitNode.
@@ -1207,6 +1234,10 @@ unsigned MatcherTableEmitter::EmitMatcherList(const Matcher *N,
     N = N->getNext();
   }
   return Size;
+}
+
+void MatcherTableEmitter::EmitOperandLists(raw_ostream &OS) {
+  OperandTable.emit(OS, [](raw_ostream &OS, uint8_t O) { OS << (unsigned)O; });
 }
 
 void MatcherTableEmitter::EmitNodePredicatesFunction(
@@ -1545,9 +1576,14 @@ void llvm::EmitMatcherTable(Matcher *TheMatcher, const CodeGenDAGPatterns &CGP,
 
   MatcherEmitter.EmitHistogram(OS);
 
+  OS << "  static const uint8_t OperandLists[] = {\n";
+  MatcherEmitter.EmitOperandLists(OS);
+  OS << "  };\n\n";
+
   OS << "  #undef COVERAGE_IDX_VAL\n";
   OS << "  #undef TARGET_VAL\n";
-  OS << "  SelectCodeCommon(N, MatcherTable, sizeof(MatcherTable));\n";
+  OS << "  SelectCodeCommon(N, MatcherTable, sizeof(MatcherTable),\n";
+  OS << "                   OperandLists);\n";
   OS << "}\n";
   EndEmitFunction(OS);
 
