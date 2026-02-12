@@ -10303,15 +10303,17 @@ SDValue RISCVTargetLowering::lowerShiftLeftParts(SDValue Op,
   SDValue ShamtMinusXLen = DAG.getNode(ISD::ADD, DL, VT, Shamt, MinusXLen);
   SDValue XLenMinus1Shamt = DAG.getNode(ISD::SUB, DL, VT, XLenMinus1, Shamt);
 
-  SDValue ShamtMasked =
-      DAG.getNode(ISD::AND, DL, VT, Shamt, DAG.getConstant(XLen - 1, DL, VT));
+  SDValue ShamtMasked = DAG.getNode(ISD::AND, DL, VT, Shamt, XLenMinus1);
   SDValue LoTrue = DAG.getNode(ISD::SHL, DL, VT, Lo, ShamtMasked);
   SDValue ShiftRight1Lo = DAG.getNode(ISD::SRL, DL, VT, Lo, One);
   SDValue ShiftRightLo =
-      DAG.getNode(ISD::SRL, DL, VT, ShiftRight1Lo, XLenMinus1Shamt);
+      DAG.getNode(ISD::SRL, DL, VT, ShiftRight1Lo,
+                  DAG.getNode(ISD::AND, DL, VT, XLenMinus1Shamt, XLenMinus1));
   SDValue ShiftLeftHi = DAG.getNode(ISD::SHL, DL, VT, Hi, ShamtMasked);
   SDValue HiTrue = DAG.getNode(ISD::OR, DL, VT, ShiftLeftHi, ShiftRightLo);
-  SDValue HiFalse = DAG.getNode(ISD::SHL, DL, VT, Lo, ShamtMinusXLen);
+  SDValue HiFalse = DAG.getNode(ISD::SHL, DL, VT, Lo,
+                                DAG.getNode(ISD::AND, DL, VT, ShamtMinusXLen,
+                                            XLenMinus1));
 
   SDValue CC = DAG.getSetCC(DL, VT, ShamtMinusXLen, Zero, ISD::SETLT);
 
@@ -10388,14 +10390,16 @@ SDValue RISCVTargetLowering::lowerShiftRightParts(SDValue Op, SelectionDAG &DAG,
   SDValue XLenMinus1Shamt = DAG.getNode(ISD::SUB, DL, VT, XLenMinus1, Shamt);
 
   SDValue ShamtMasked =
-      DAG.getNode(ISD::AND, DL, VT, Shamt, DAG.getConstant(XLen - 1, DL, VT));
+      DAG.getNode(ISD::AND, DL, VT, Shamt, XLenMinus1);
   SDValue ShiftRightLo = DAG.getNode(ISD::SRL, DL, VT, Lo, ShamtMasked);
   SDValue ShiftLeftHi1 = DAG.getNode(ISD::SHL, DL, VT, Hi, One);
   SDValue ShiftLeftHi =
-      DAG.getNode(ISD::SHL, DL, VT, ShiftLeftHi1, XLenMinus1Shamt);
+      DAG.getNode(ISD::SHL, DL, VT, ShiftLeftHi1,
+                  DAG.getNode(ISD::AND, DL, VT, XLenMinus1Shamt, XLenMinus1));
   SDValue LoTrue = DAG.getNode(ISD::OR, DL, VT, ShiftRightLo, ShiftLeftHi);
   SDValue HiTrue = DAG.getNode(ShiftRightOp, DL, VT, Hi, ShamtMasked);
-  SDValue LoFalse = DAG.getNode(ShiftRightOp, DL, VT, Hi, ShamtMinusXLen);
+  SDValue LoFalse = DAG.getNode(ShiftRightOp, DL, VT, Hi,
+                                DAG.getNode(ISD::AND, DL, VT, ShamtMinusXLen, XLenMinus1));
   SDValue HiFalse =
       IsSRA ? DAG.getNode(ISD::SRA, DL, VT, Hi, XLenMinus1) : Zero;
 
