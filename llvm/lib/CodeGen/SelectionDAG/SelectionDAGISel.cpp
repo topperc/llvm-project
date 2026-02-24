@@ -3367,7 +3367,8 @@ public:
 void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
                                         const uint8_t *MatcherTable,
                                         unsigned TableSize,
-                                        const uint8_t *OperandLists) {
+                                        const uint16_t *ExtendedOperandOffsets,
+                                        const uint8_t *ExtendedOperandData) {
   // FIXME: Should these even be selected?  Handle these cases in the caller?
   switch (NodeToMatch->getOpcode()) {
   default:
@@ -4245,75 +4246,23 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
 
     case OPC_EmitNode:
     case OPC_EmitNodeByHwMode:
-    case OPC_EmitNode0:
-    case OPC_EmitNode1:
-    case OPC_EmitNode2:
-    case OPC_EmitNode1None:
-    case OPC_EmitNode2None:
-    case OPC_EmitNode0Chain:
-    case OPC_EmitNode1Chain:
-    case OPC_EmitNode2Chain:
     case OPC_MorphNodeTo:
-    case OPC_MorphNodeToByHwMode:
-    case OPC_MorphNodeTo0:
-    case OPC_MorphNodeTo1:
-    case OPC_MorphNodeTo2:
-    case OPC_MorphNodeTo1None:
-    case OPC_MorphNodeTo2None:
-    case OPC_MorphNodeTo0Chain:
-    case OPC_MorphNodeTo1Chain:
-    case OPC_MorphNodeTo2Chain:
-    case OPC_MorphNodeTo1GlueInput:
-    case OPC_MorphNodeTo2GlueInput:
-    case OPC_MorphNodeTo1GlueOutput:
-    case OPC_MorphNodeTo2GlueOutput: {
+    case OPC_MorphNodeToByHwMode: {
       uint32_t TargetOpc = MatcherTable[MatcherIndex++];
       TargetOpc |= (MatcherTable[MatcherIndex++] << 8);
-      unsigned EmitNodeInfo;
-      if (Opcode >= OPC_EmitNode1None && Opcode <= OPC_EmitNode2Chain) {
-        if (Opcode >= OPC_EmitNode0Chain && Opcode <= OPC_EmitNode2Chain)
-          EmitNodeInfo = OPFL_Chain;
-        else
-          EmitNodeInfo = OPFL_None;
-      } else if (Opcode >= OPC_MorphNodeTo1None &&
-                 Opcode <= OPC_MorphNodeTo2GlueOutput) {
-        if (Opcode >= OPC_MorphNodeTo0Chain && Opcode <= OPC_MorphNodeTo2Chain)
-          EmitNodeInfo = OPFL_Chain;
-        else if (Opcode >= OPC_MorphNodeTo1GlueInput &&
-                 Opcode <= OPC_MorphNodeTo2GlueInput)
-          EmitNodeInfo = OPFL_GlueInput;
-        else if (Opcode >= OPC_MorphNodeTo1GlueOutput &&
-                 Opcode <= OPC_MorphNodeTo2GlueOutput)
-          EmitNodeInfo = OPFL_GlueOutput;
-        else
-          EmitNodeInfo = OPFL_None;
-      } else
-        EmitNodeInfo = MatcherTable[MatcherIndex++];
-      // Get the result VT list.
-      unsigned NumVTs;
-      // If this is one of the compressed forms, get the number of VTs based
-      // on the Opcode. Otherwise read the next byte from the table.
-      if (Opcode >= OPC_MorphNodeTo0 && Opcode <= OPC_MorphNodeTo2)
-        NumVTs = Opcode - OPC_MorphNodeTo0;
-      else if (Opcode >= OPC_MorphNodeTo1None && Opcode <= OPC_MorphNodeTo2None)
-        NumVTs = Opcode - OPC_MorphNodeTo1None + 1;
-      else if (Opcode >= OPC_MorphNodeTo0Chain &&
-               Opcode <= OPC_MorphNodeTo2Chain)
-        NumVTs = Opcode - OPC_MorphNodeTo0Chain;
-      else if (Opcode >= OPC_MorphNodeTo1GlueInput &&
-               Opcode <= OPC_MorphNodeTo2GlueInput)
-        NumVTs = Opcode - OPC_MorphNodeTo1GlueInput + 1;
-      else if (Opcode >= OPC_MorphNodeTo1GlueOutput &&
-               Opcode <= OPC_MorphNodeTo2GlueOutput)
-        NumVTs = Opcode - OPC_MorphNodeTo1GlueOutput + 1;
-      else if (Opcode >= OPC_EmitNode0 && Opcode <= OPC_EmitNode2)
-        NumVTs = Opcode - OPC_EmitNode0;
-      else if (Opcode >= OPC_EmitNode1None && Opcode <= OPC_EmitNode2None)
-        NumVTs = Opcode - OPC_EmitNode1None + 1;
-      else if (Opcode >= OPC_EmitNode0Chain && Opcode <= OPC_EmitNode2Chain)
-        NumVTs = Opcode - OPC_EmitNode0Chain;
-      else
-        NumVTs = MatcherTable[MatcherIndex++];
+
+      // Read the extended operand index.
+      size_t ExtIdx = MatcherTable[MatcherIndex++];
+      if (ExtIdx & 128)
+        ExtIdx = GetVBR(ExtIdx, MatcherTable, MatcherIndex);
+
+      // Look up the extended operand data: [Flags, NumVTs, NumOps, Ops...]
+      size_t ExtDataOffset = ExtendedOperandOffsets[ExtIdx];
+      unsigned EmitNodeInfo = ExtendedOperandData[ExtDataOffset++];
+      unsigned NumVTs = ExtendedOperandData[ExtDataOffset++];
+      unsigned NumOps = ExtendedOperandData[ExtDataOffset++];
+
+      // Read the VTs from the MatcherTable.
       SmallVector<EVT, 4> VTs;
       if (Opcode == OPC_EmitNodeByHwMode || Opcode == OPC_MorphNodeToByHwMode) {
         for (unsigned i = 0; i != NumVTs; ++i) {
@@ -4346,24 +4295,15 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
       else
         VTList = CurDAG->getVTList(VTs);
 
-      // Get the operand list.
-      unsigned NumOps = MatcherTable[MatcherIndex++];
-
+      // Get the operands from the extended data.
       SmallVector<SDValue, 8> Ops;
-      if (NumOps != 0) {
-        // Get the index into the OperandLists.
-        size_t OperandIndex = MatcherTable[MatcherIndex++];
-        if (OperandIndex & 128)
-          OperandIndex = GetVBR(OperandIndex, MatcherTable, MatcherIndex);
+      for (unsigned i = 0; i != NumOps; ++i) {
+        unsigned RecNo = ExtendedOperandData[ExtDataOffset++];
+        if (RecNo & 128)
+          RecNo = GetVBR(RecNo, ExtendedOperandData, ExtDataOffset);
 
-        for (unsigned i = 0; i != NumOps; ++i) {
-          unsigned RecNo = OperandLists[OperandIndex++];
-          if (RecNo & 128)
-            RecNo = GetVBR(RecNo, OperandLists, OperandIndex);
-
-          assert(RecNo < RecordedNodes.size() && "Invalid EmitNode");
-          Ops.push_back(RecordedNodes[RecNo].first);
-        }
+        assert(RecNo < RecordedNodes.size() && "Invalid EmitNode");
+        Ops.push_back(RecordedNodes[RecNo].first);
       }
 
       // If there are variadic operands to add, handle them now.
@@ -4403,8 +4343,7 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
       // Create the node.
       MachineSDNode *Res = nullptr;
       bool IsMorphNodeTo =
-          Opcode == OPC_MorphNodeTo || Opcode == OPC_MorphNodeToByHwMode ||
-          (Opcode >= OPC_MorphNodeTo0 && Opcode <= OPC_MorphNodeTo2GlueOutput);
+          Opcode == OPC_MorphNodeTo || Opcode == OPC_MorphNodeToByHwMode;
       if (!IsMorphNodeTo) {
         // If this is a normal EmitNode command, just create the new node and
         // add the results to the RecordedNodes list.

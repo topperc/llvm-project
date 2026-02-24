@@ -322,32 +322,8 @@ public:
     OPC_EmitNodeXForm,
     OPC_EmitNode,
     OPC_EmitNodeByHwMode,
-    // Space-optimized forms that implicitly encode number of result VTs.
-    OPC_EmitNode0,
-    OPC_EmitNode1,
-    OPC_EmitNode2,
-    // Space-optimized forms that implicitly encode EmitNodeInfo.
-    OPC_EmitNode1None,
-    OPC_EmitNode2None,
-    OPC_EmitNode0Chain,
-    OPC_EmitNode1Chain,
-    OPC_EmitNode2Chain,
     OPC_MorphNodeTo,
     OPC_MorphNodeToByHwMode,
-    // Space-optimized forms that implicitly encode number of result VTs.
-    OPC_MorphNodeTo0,
-    OPC_MorphNodeTo1,
-    OPC_MorphNodeTo2,
-    // Space-optimized forms that implicitly encode EmitNodeInfo.
-    OPC_MorphNodeTo1None,
-    OPC_MorphNodeTo2None,
-    OPC_MorphNodeTo0Chain,
-    OPC_MorphNodeTo1Chain,
-    OPC_MorphNodeTo2Chain,
-    OPC_MorphNodeTo1GlueInput,
-    OPC_MorphNodeTo2GlueInput,
-    OPC_MorphNodeTo1GlueOutput,
-    OPC_MorphNodeTo2GlueOutput,
     OPC_CompleteMatch,
     // Contains 32-bit offset in table for pattern being selected
     OPC_Coverage
@@ -359,14 +335,21 @@ public:
     OPFL_GlueInput = 2,  // Node has a glue input.
     OPFL_GlueOutput = 4, // Node has a glue output.
     OPFL_MemRefs = 8,    // Node gets accumulated MemRefs.
-    OPFL_Variadic0 = 1 << 4, // Node is variadic, root has 0 fixed inputs.
-    OPFL_Variadic1 = 2 << 4, // Node is variadic, root has 1 fixed inputs.
-    OPFL_Variadic2 = 3 << 4, // Node is variadic, root has 2 fixed inputs.
-    OPFL_Variadic3 = 4 << 4, // Node is variadic, root has 3 fixed inputs.
-    OPFL_Variadic4 = 5 << 4, // Node is variadic, root has 4 fixed inputs.
-    OPFL_Variadic5 = 6 << 4, // Node is variadic, root has 5 fixed inputs.
-    OPFL_Variadic6 = 7 << 4, // Node is variadic, root has 6 fixed inputs.
-    OPFL_Variadic7 = 8 << 4, // Node is variadic, root has 7 fixed inputs.
+    OPFL_Variadic0 = 1 << 4,  // Node is variadic, root has 0 fixed inputs.
+    OPFL_Variadic1 = 2 << 4,  // Node is variadic, root has 1 fixed inputs.
+    OPFL_Variadic2 = 3 << 4,  // Node is variadic, root has 2 fixed inputs.
+    OPFL_Variadic3 = 4 << 4,  // Node is variadic, root has 3 fixed inputs.
+    OPFL_Variadic4 = 5 << 4,  // Node is variadic, root has 4 fixed inputs.
+    OPFL_Variadic5 = 6 << 4,  // Node is variadic, root has 5 fixed inputs.
+    OPFL_Variadic6 = 7 << 4,  // Node is variadic, root has 6 fixed inputs.
+    OPFL_Variadic7 = 8 << 4,  // Node is variadic, root has 7 fixed inputs.
+    OPFL_Variadic8 = 9 << 4,  // Node is variadic, root has 8 fixed inputs.
+    OPFL_Variadic9 = 10 << 4, // Node is variadic, root has 9 fixed inputs.
+    OPFL_Variadic10 = 11 << 4, // Node is variadic, root has 10 fixed inputs.
+    OPFL_Variadic11 = 12 << 4, // Node is variadic, root has 11 fixed inputs.
+    OPFL_Variadic12 = 13 << 4, // Node is variadic, root has 12 fixed inputs.
+    OPFL_Variadic13 = 14 << 4, // Node is variadic, root has 13 fixed inputs.
+    OPFL_Variadic14 = 15 << 4, // Node is variadic, root has 14 fixed inputs.
 
     OPFL_VariadicInfo = 15 << 4 // Mask for extracting the OPFL_VariadicN bits.
   };
@@ -482,7 +465,9 @@ public:
   }
 
   void SelectCodeCommon(SDNode *NodeToMatch, const uint8_t *MatcherTable,
-                        unsigned TableSize, const uint8_t *OperandLists);
+                        unsigned TableSize,
+                        const uint16_t *ExtendedOperandOffsets,
+                        const uint8_t *ExtendedOperandData);
 
   /// Return true if complex patterns for this target can mutate the
   /// DAG.

@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "Basic/SDNodeProperties.h"
-#include "Basic/SequenceToOffsetTable.h"
 #include "Common/CodeGenDAGPatterns.h"
 #include "Common/CodeGenInstruction.h"
 #include "Common/CodeGenRegisters.h"
@@ -76,7 +75,51 @@ class MatcherTableEmitter {
   // Index is 1-based (0 means not yet assigned).
   std::map<ValueTypeByHwMode, std::pair<unsigned, unsigned>> ValueTypeMap;
 
-  SequenceToOffsetTable<std::vector<uint8_t>> OperandTable;
+  // Extended operand table: stores [Flags, NumVTs, NumOps, Op0, Op1, ...]
+  // This allows sharing of (Flags, NumVTs, NumOps, Ops) combinations
+  // across EmitNode/MorphNodeTo instructions.
+  std::map<std::vector<uint8_t>, unsigned> ExtendedOperandMap;
+  std::vector<std::vector<uint8_t>> ExtendedOperandEntries;
+
+  // Helper to compute flags for EmitNodeMatcherCommon.
+  unsigned getEmitNodeFlags(const EmitNodeMatcherCommon *EN) {
+    unsigned Flags = 0;
+    if (EN->hasChain())
+      Flags |= 1; // OPFL_Chain
+    if (EN->hasInGlue())
+      Flags |= 2; // OPFL_GlueInput
+    if (EN->hasOutGlue())
+      Flags |= 4; // OPFL_GlueOutput
+    if (EN->hasMemRefs())
+      Flags |= 8; // OPFL_MemRefs
+    if (EN->getNumFixedArityOperands() != -1)
+      Flags |= (EN->getNumFixedArityOperands() + 1) << 4; // OPFL_VariadicN
+    return Flags;
+  }
+
+  // Build extended operand entry: [Flags, NumVTs, NumOps, Op0, Op1, ...]
+  std::vector<uint8_t> buildExtendedOperandEntry(const EmitNodeMatcherCommon *EN) {
+    std::vector<uint8_t> Entry;
+    Entry.push_back(getEmitNodeFlags(EN));
+    Entry.push_back(EN->getNumVTs());
+    Entry.push_back(EN->getNumOperands());
+    for (unsigned Op : EN->getOperandList()) {
+      uint8_t Buffer[5];
+      unsigned Len = encodeULEB128(Op, Buffer);
+      for (unsigned i = 0; i < Len; ++i)
+        Entry.push_back(Buffer[i]);
+    }
+    return Entry;
+  }
+
+  // Get or create index for extended operand entry.
+  unsigned getExtendedOperandIndex(const std::vector<uint8_t> &Entry) {
+    auto [It, Inserted] =
+        ExtendedOperandMap.try_emplace(Entry, ExtendedOperandEntries.size());
+    if (Inserted)
+      ExtendedOperandEntries.push_back(Entry);
+    return It->second;
+  }
 
   unsigned getPatternIdxFromTable(std::string &&P, std::string &&include_loc) {
     const auto [It, Inserted] =
@@ -91,8 +134,7 @@ class MatcherTableEmitter {
 public:
   MatcherTableEmitter(const MatcherList &TheMatcherList,
                       const CodeGenDAGPatterns &cgp)
-      : CGP(cgp), OpcodeCounts(Matcher::HighestKind + 1, 0),
-        OperandTable(std::nullopt) {
+      : CGP(cgp), OpcodeCounts(Matcher::HighestKind + 1, 0) {
     // Record the usage of ComplexPattern.
     MapVector<const ComplexPattern *, unsigned> ComplexPatternUsage;
     // Record the usage of PatternPredicate.
@@ -136,23 +178,14 @@ public:
             }
 
             if (const auto *EN = dyn_cast<EmitNodeMatcherCommon>(N)) {
-              ArrayRef<unsigned> Ops = EN->getOperandList();
-              std::vector<uint8_t> OpBytes;
-              for (unsigned Op : Ops) {
-                uint8_t Buffer[5];
-                unsigned Len = encodeULEB128(Op, Buffer);
-                for (unsigned i = 0; i < Len; ++i)
-                  OpBytes.push_back(Buffer[i]);
-              }
-              OperandTable.add(OpBytes);
+              // Build extended operand entry for deduplication.
+              getExtendedOperandIndex(buildExtendedOperandEntry(EN));
             }
           }
         };
     Statistic(TheMatcherList);
 
     sortValueTypeByHwModeByFrequency();
-
-    OperandTable.layout();
 
     // Sort ComplexPatterns by usage.
     std::vector<std::pair<const ComplexPattern *, unsigned>> ComplexPatternList(
@@ -210,7 +243,7 @@ public:
   unsigned EmitMatcherList(const MatcherList &ML, const unsigned Indent,
                            unsigned StartIdx, raw_ostream &OS);
 
-  void EmitOperandLists(raw_ostream &OS);
+  void EmitExtendedOperandLists(raw_ostream &OS);
 
   unsigned SizeMatcherList(MatcherList &ML, raw_ostream &OS);
 
@@ -1124,65 +1157,22 @@ unsigned MatcherTableEmitter::EmitMatcher(const Matcher *N,
 
     bool IsEmitNode = isa<EmitNodeMatcher>(EN);
     OS << (IsEmitNode ? "OPC_EmitNode" : "OPC_MorphNodeTo");
-    unsigned NumVTs = EN->getNumVTs();
-    bool CompressVTs = !ByHwMode && EN->getNumVTs() < 3;
-    bool CompressNodeInfo = false;
-    if (CompressVTs) {
-      OS << NumVTs;
-      // When NumVTs is zero, only consider compressing the chain flag. Any
-      // zero result node without chain would be deleted and not eligible for
-      // isel.
-      if (NumVTs > 0 && !EN->hasChain() && !EN->hasInGlue() &&
-          !EN->hasOutGlue() && !EN->hasMemRefs() &&
-          EN->getNumFixedArityOperands() == -1) {
-        CompressNodeInfo = true;
-        OS << "None";
-      } else if (EN->hasChain() && !EN->hasInGlue() && !EN->hasOutGlue() &&
-                 !EN->hasMemRefs() && EN->getNumFixedArityOperands() == -1) {
-        CompressNodeInfo = true;
-        OS << "Chain";
-      } else if (NumVTs > 0 && !IsEmitNode && !EN->hasChain() &&
-                 EN->hasInGlue() && !EN->hasOutGlue() && !EN->hasMemRefs() &&
-                 EN->getNumFixedArityOperands() == -1) {
-        CompressNodeInfo = true;
-        OS << "GlueInput";
-      } else if (NumVTs > 0 && !IsEmitNode && !EN->hasChain() &&
-                 !EN->hasInGlue() && EN->hasOutGlue() && !EN->hasMemRefs() &&
-                 EN->getNumFixedArityOperands() == -1) {
-        CompressNodeInfo = true;
-        OS << "GlueOutput";
-      }
-    }
-
     if (ByHwMode)
       OS << "ByHwMode";
 
     const CodeGenInstruction &CGI = EN->getInstruction();
     OS << ", TARGET_VAL(" << CGI.Namespace << "::" << CGI.TheDef->getName()
-       << ")";
+       << "),";
 
-    if (!CompressNodeInfo) {
-      OS << ", 0";
-      if (EN->hasChain())
-        OS << "|OPFL_Chain";
-      if (EN->hasInGlue())
-        OS << "|OPFL_GlueInput";
-      if (EN->hasOutGlue())
-        OS << "|OPFL_GlueOutput";
-      if (EN->hasMemRefs())
-        OS << "|OPFL_MemRefs";
-      if (EN->getNumFixedArityOperands() != -1)
-        OS << "|OPFL_Variadic" << EN->getNumFixedArityOperands();
-    }
-    OS << ",\n";
+    // Emit the ExtendedOperandIdx which contains (Flags, NumVTs, NumOps, Ops).
+    std::vector<uint8_t> ExtEntry = buildExtendedOperandEntry(EN);
+    unsigned ExtIdx = getExtendedOperandIndex(ExtEntry);
+    OS << ' ';
+    if (!OmitComments)
+      OS << "/*Ext*/";
+    unsigned NumExtIdxBytes = EmitVBRValue(ExtIdx, OS);
 
-    OS.indent(FullIndexWidth + Indent + 4);
-    if (!CompressVTs) {
-      OS << EN->getNumVTs();
-      if (!OmitComments)
-        OS << "/*#VTs*/";
-      OS << ",";
-    }
+    // Emit the VTs (NumVTs is obtained from the extended table lookup).
     unsigned NumTypeBytes = 0;
     if (ByHwMode) {
       for (unsigned i = 0, e = EN->getNumVTs(); i != e; ++i) {
@@ -1197,34 +1187,12 @@ unsigned MatcherTableEmitter::EmitMatcher(const Matcher *N,
       }
     }
 
-    unsigned NumOps = EN->getNumOperands();
-    OS << ' ' << NumOps;
-    if (!OmitComments)
-      OS << "/*#Ops*/";
-    OS << ',';
-
-    unsigned NumOperandBytes = 0;
-    if (NumOps != 0) {
-      std::vector<uint8_t> OpBytes;
-      for (unsigned i = 0, e = EN->getNumOperands(); i != e; ++i) {
-        uint8_t Buffer[5];
-        unsigned Len = encodeULEB128(EN->getOperand(i), Buffer);
-        for (unsigned i = 0; i < Len; ++i)
-          OpBytes.push_back(Buffer[i]);
-      }
-      unsigned Index = OperandTable.get(OpBytes);
-      OS << ' ';
-      if (!OmitComments)
-        OS << "/*OperandList*/";
-      NumOperandBytes = EmitVBRValue(Index, OS);
-    }
-
     if (!OmitComments) {
       // Print the operand #'s.
       ArrayRef<unsigned> Ops = EN->getOperandList();
-      OS << " // Ops =";
+      OS << " // Ops:";
       if (Ops.empty())
-        OS << " None";
+        OS << " <none>";
       else
         for (unsigned OpNo : Ops)
           OS << " #" << OpNo;
@@ -1232,7 +1200,7 @@ unsigned MatcherTableEmitter::EmitMatcher(const Matcher *N,
       // Print the result #'s for EmitNode.
       if (const EmitNodeMatcher *E = dyn_cast<EmitNodeMatcher>(EN)) {
         if (unsigned NumResults = EN->getNumVTs()) {
-          OS << " Results =";
+          OS << " Results:";
           unsigned First = E->getFirstResultSlot();
           for (unsigned i = 0; i != NumResults; ++i)
             OS << " #" << First + i;
@@ -1252,8 +1220,9 @@ unsigned MatcherTableEmitter::EmitMatcher(const Matcher *N,
       OS << '\n';
     }
 
-    return 4 + SupportsDeactivationSymbol + !CompressVTs + !CompressNodeInfo +
-           NumTypeBytes + NumOperandBytes + NumCoveredBytes;
+    // Bytes: opcode(1) + TARGET_VAL(2) + ExtIdx(VBR) + VTs
+    return 3 + SupportsDeactivationSymbol + NumExtIdxBytes + NumTypeBytes +
+           NumCoveredBytes;
   }
   case Matcher::CompleteMatch: {
     const CompleteMatchMatcher *CM = cast<CompleteMatchMatcher>(N);
@@ -1311,8 +1280,67 @@ unsigned MatcherTableEmitter::EmitMatcherList(const MatcherList &ML,
   return Size;
 }
 
-void MatcherTableEmitter::EmitOperandLists(raw_ostream &OS) {
-  OperandTable.emit(OS, [](raw_ostream &OS, uint8_t O) { OS << (unsigned)O; });
+void MatcherTableEmitter::EmitExtendedOperandLists(raw_ostream &OS) {
+  // Emit offsets table (uint16_t per entry).
+  OS << "  // ExtendedOperandOffsets - offsets into ExtendedOperandData\n";
+  OS << "  static const uint16_t ExtendedOperandOffsets[] = {\n    ";
+  unsigned Offset = 0;
+  for (unsigned i = 0, e = ExtendedOperandEntries.size(); i != e; ++i) {
+    if (i > 0) {
+      OS << ", ";
+      if (i % 16 == 0)
+        OS << "\n    ";
+    }
+    OS << Offset;
+    Offset += ExtendedOperandEntries[i].size();
+  }
+  OS << ", \n  };\n\n";
+
+  // Emit data table.
+  OS << "  // ExtendedOperandData - [Flags, NumVTs, NumOps, Ops...] entries\n";
+  OS << "  static const uint8_t ExtendedOperandData[] = {\n";
+  for (unsigned i = 0, e = ExtendedOperandEntries.size(); i != e; ++i) {
+    const auto &Entry = ExtendedOperandEntries[i];
+    OS << "    ";
+
+    // Print flags symbolically.
+    unsigned Flags = Entry[0];
+    if (Flags == 0) {
+      OS << "OPFL_None";
+    } else {
+      bool First = true;
+      auto PrintFlag = [&](unsigned Mask, const char *Name) {
+        if (Flags & Mask) {
+          if (!First)
+            OS << "|";
+          OS << Name;
+          First = false;
+        }
+      };
+      PrintFlag(1, "OPFL_Chain");
+      PrintFlag(2, "OPFL_GlueInput");
+      PrintFlag(4, "OPFL_GlueOutput");
+      PrintFlag(8, "OPFL_MemRefs");
+      // Variadic bits are in the upper nibble (bits 4-7).
+      // OPFL_VariadicN = (N+1) << 4, so N = VariadicInfo - 1.
+      unsigned VariadicInfo = (Flags >> 4) & 0xF;
+      if (VariadicInfo) {
+        if (!First)
+          OS << "|";
+        OS << "OPFL_Variadic" << (VariadicInfo - 1);
+      }
+    }
+
+    // Print remaining values (NumVTs, NumOps, Ops...).
+    for (unsigned j = 1, je = Entry.size(); j != je; ++j)
+      OS << ", " << (unsigned)Entry[j];
+    OS << ",";
+
+    if (!OmitComments)
+      OS << " // Entry " << i;
+    OS << "\n";
+  }
+  OS << "  };\n";
 }
 
 void MatcherTableEmitter::EmitNodePredicatesFunction(
@@ -1651,14 +1679,13 @@ void llvm::EmitMatcherTable(MatcherList &TheMatcherList,
 
   MatcherEmitter.EmitHistogram(OS);
 
-  OS << "  static const uint8_t OperandLists[] = {\n";
-  MatcherEmitter.EmitOperandLists(OS);
-  OS << "  };\n\n";
+  MatcherEmitter.EmitExtendedOperandLists(OS);
+  OS << "\n";
 
   OS << "  #undef COVERAGE_IDX_VAL\n";
   OS << "  #undef TARGET_VAL\n";
   OS << "  SelectCodeCommon(N, MatcherTable, sizeof(MatcherTable),\n";
-  OS << "                   OperandLists);\n";
+  OS << "                   ExtendedOperandOffsets, ExtendedOperandData);\n";
   OS << "}\n";
   EndEmitFunction(OS);
 
