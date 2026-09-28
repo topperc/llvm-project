@@ -40,25 +40,24 @@ template <typename Pattern>
 
 // === Utilities ===
 struct Value_match {
-  SDValue MatchVal;
-
-  Value_match() = default;
-
-  explicit Value_match(SDValue Match) : MatchVal(Match) {}
-
-  bool match(SDValue N) {
-    if (MatchVal)
-      return MatchVal == N;
-    return N.getNode();
-  }
+  bool match(SDValue N) { return N.getNode(); }
 };
 
 /// Match any valid SDValue.
 inline Value_match m_Value() { return Value_match(); }
 
-inline Value_match m_Specific(SDValue N) {
+struct Specific_match {
+  SDValue MatchVal;
+
+  explicit Specific_match(SDValue Match) : MatchVal(Match) {}
+
+  bool match(SDValue N) { return MatchVal == N; }
+};
+
+/// Match a specific SDValue.
+inline Specific_match m_Specific(SDValue N) {
   assert(N);
-  return Value_match(N);
+  return Specific_match(N);
 }
 
 template <unsigned ResNo, typename Pattern> struct Result_match {
