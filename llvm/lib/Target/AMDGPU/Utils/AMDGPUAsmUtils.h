@@ -84,6 +84,10 @@ StringRef getMsgOpName(int64_t MsgId, uint64_t Encoding,
 
 } // namespace SendMsg
 
+namespace WaitEvent {
+StringRef getWaitEventMaskName(uint64_t Encoding, const MCSubtargetInfo &STI);
+} // namespace WaitEvent
+
 namespace Hwreg { // Symbolic names for the hwreg(...) syntax.
 
 int64_t getHwregId(StringRef Name, const MCSubtargetInfo &STI);

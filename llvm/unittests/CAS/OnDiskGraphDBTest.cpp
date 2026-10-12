@@ -8,12 +8,13 @@
 
 #include "CASTestConfig.h"
 #include "OnDiskCommonUtils.h"
-#include "llvm/Support/Alignment.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/Process.h"
 #include "llvm/Testing/Support/Error.h"
 #include "llvm/Testing/Support/SupportHelpers.h"
 #include "gtest/gtest.h"
+
+#include <set>
 
 using namespace llvm;
 using namespace llvm::cas;
@@ -88,6 +89,51 @@ TEST_F(OnDiskCASTest, OnDiskGraphDBTest) {
       OnDiskGraphDB::open(Temp.path(), "blake3", sizeof(HashType)).moveInto(DB),
       Succeeded());
   EXPECT_EQ(DB->getStorageSize(), StorageSize);
+}
+
+TEST_F(OnDiskCASTest, OnDiskGraphDBStandaloneObjectMappedOnce) {
+  unittest::TempDir Temp("ondiskcas", /*Unique=*/true);
+  std::unique_ptr<OnDiskGraphDB> DB;
+  ASSERT_THAT_ERROR(
+      OnDiskGraphDB::open(Temp.path(), "blake3", sizeof(HashType)).moveInto(DB),
+      Succeeded());
+
+  auto listFiles = [&Temp]() {
+    std::set<std::string> Files;
+    std::error_code EC;
+    for (sys::fs::directory_iterator I(Temp.path(), EC), E; I != E && !EC;
+         I.increment(EC))
+      Files.insert(I->path());
+    return Files;
+  };
+  std::set<std::string> Before = listFiles();
+
+  // Objects above TrieRecord::MaxEmbeddedSize are written to a file of their
+  // own instead of into the data pool.
+  std::string Data(128 * 1024, 'z');
+  std::optional<ObjectID> ID;
+  ASSERT_THAT_ERROR(store(*DB, Data, {}).moveInto(ID), Succeeded());
+
+  std::optional<ondisk::ObjectHandle> Obj;
+  ASSERT_THAT_ERROR(DB->load(*ID).moveInto(Obj), Succeeded());
+  ASSERT_TRUE(Obj);
+  EXPECT_EQ(toStringRef(DB->getObjectData(*Obj)), Data);
+
+  // Loading it kept the mapping, so deleting the file must not stop a second
+  // load from returning the same bytes. This fails if load() reopens the file
+  // every time instead of consulting the objects it has already mapped.
+  unsigned Removed = 0;
+  for (const std::string &Path : listFiles())
+    if (!Before.count(Path)) {
+      ASSERT_FALSE(sys::fs::remove(Path));
+      ++Removed;
+    }
+  ASSERT_GE(Removed, 1u) << "expected a standalone file to have been created";
+
+  std::optional<ondisk::ObjectHandle> Reloaded;
+  ASSERT_THAT_ERROR(DB->load(*ID).moveInto(Reloaded), Succeeded());
+  ASSERT_TRUE(Reloaded);
+  EXPECT_EQ(toStringRef(DB->getObjectData(*Reloaded)), Data);
 }
 
 TEST_F(OnDiskCASTest, OnDiskGraphDBFaultInSingleNode) {
@@ -296,50 +342,6 @@ TEST_F(OnDiskCASTest, OnDiskGraphDBFaultInPolicyConflict) {
                            OnDiskGraphDB::FaultInPolicy::SingleNode);
 }
 
-static std::unique_ptr<unittest::TempFile> createLargeFile(char initChar) {
-  auto TmpFile = std::make_unique<unittest::TempFile>(
-      "largefile.o", /*Suffix=*/"", /*Contents=*/"",
-      /*Unique=*/true);
-  StringRef Path = TmpFile->path();
-  std::error_code EC;
-  raw_fd_stream Out(Path, EC);
-  EXPECT_FALSE(EC);
-  SmallString<200> Data;
-  Data += initChar;
-  for (unsigned i = 1; i != 200; ++i) {
-    Data += i;
-  }
-  for (unsigned i = 0; i != 1000; ++i) {
-    Out.write(Data.data(), Data.size());
-  }
-  return TmpFile;
-}
-
-static std::unique_ptr<unittest::TempFile>
-createLargePageAlignedFile(char initChar) {
-  auto TmpFile = std::make_unique<unittest::TempFile>(
-      "largepagealignedfile.o", /*Suffix=*/"", /*Contents=*/"",
-      /*Unique=*/true);
-  StringRef Path = TmpFile->path();
-  std::error_code EC;
-  raw_fd_stream Out(Path, EC);
-  EXPECT_FALSE(EC);
-  SmallString<256> Data;
-  Data += initChar;
-  for (unsigned i = 1; i != sys::Process::getPageSizeEstimate(); ++i) {
-    Data += char(i);
-  }
-  for (unsigned i = 0; i != 64; ++i) {
-    Out.write(Data.data(), Data.size());
-  }
-  Out.close();
-  uint64_t FileSize;
-  EC = sys::fs::file_size(Path, FileSize);
-  EXPECT_FALSE(EC);
-  assert(isAligned(Align(sys::Process::getPageSizeEstimate()), FileSize));
-  return TmpFile;
-}
-
 TEST_F(OnDiskCASTest, OnDiskGraphDBFaultInLargeFile) {
   auto runCommonTests =
       [](function_ref<std::unique_ptr<unittest::TempFile>(char)> createFileFn) {
@@ -396,23 +398,9 @@ TEST_F(OnDiskCASTest, OnDiskGraphDBFileAPIs) {
 
   SmallVector<std::unique_ptr<unittest::TempFile>, 4> TempFiles;
 
-  // Create a file with small size and and controlling the initial byte so
-  // caller can create different contents.
   auto createSmallFile = [&TempFiles](char initChar) -> StringRef {
-    TempFiles.push_back(std::make_unique<unittest::TempFile>(
-        "smallfile.o", /*Suffix=*/"", /*Contents=*/"",
-        /*Unique=*/true));
-    StringRef Path = TempFiles.back()->path();
-    std::error_code EC;
-    raw_fd_stream Out(Path, EC);
-    EXPECT_FALSE(EC);
-    SmallString<200> Data;
-    Data += initChar;
-    for (unsigned i = 1; i != 200; ++i) {
-      Data += i;
-    }
-    Out.write(Data.data(), Data.size());
-    return Path;
+    TempFiles.push_back(::createSmallFile(initChar));
+    return TempFiles.back()->path();
   };
 
   auto createLargeFile = [&TempFiles](char initChar) -> StringRef {

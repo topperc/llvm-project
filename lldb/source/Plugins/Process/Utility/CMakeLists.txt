@@ -52,14 +52,16 @@ add_lldb_library(lldbPluginProcessUtility
   RegisterContextThreadMemory.cpp
   RegisterContextWindows_i386.cpp
   RegisterContextWindows_x86_64.cpp
-  RegisterFlagsDetector_arm64.cpp
+  RegisterTypeDetector_arm64.cpp
   RegisterInfos_x86_64_with_base_shared.cpp
   RegisterInfoPOSIX_arm.cpp
   RegisterInfoPOSIX_arm64.cpp
   RegisterInfoPOSIX_loongarch64.cpp
   RegisterInfoPOSIX_ppc64le.cpp
+  RegisterInfoPOSIX_ppc64.cpp
   RegisterInfoPOSIX_riscv32.cpp
   RegisterInfoPOSIX_riscv64.cpp
+  RegisterInfoPOSIXDynamic_riscv32.cpp
   StopInfoMachException.cpp
   ThreadMemory.cpp
 

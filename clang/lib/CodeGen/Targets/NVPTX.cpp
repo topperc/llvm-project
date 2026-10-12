@@ -8,10 +8,13 @@
 
 #include "ABIInfoImpl.h"
 #include "TargetInfo.h"
+#include "clang/Basic/SyncScope.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/IntrinsicsNVPTX.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/Support/NVVMAttributes.h"
 
 using namespace clang;
 using namespace clang::CodeGen;
@@ -48,7 +51,13 @@ public:
 
   void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
                            CodeGen::CodeGenModule &M) const override;
+  void setTargetAtomicMetadata(CodeGenFunction &CGF,
+                               llvm::Instruction &AtomicInst,
+                               const AtomicExpr *AE) const override;
   bool shouldEmitStaticExternCAliases() const override;
+
+  StringRef getLLVMSyncScopeStr(const LangOptions &LangOpts, SyncScope Scope,
+                                llvm::AtomicOrdering Ordering) const override;
 
   llvm::Constant *getNullPointer(const CodeGen::CodeGenModule &CGM,
                                  llvm::PointerType *T,
@@ -268,9 +277,9 @@ void NVPTXTargetCodeGenInfo::setTargetAttributes(
 
         for (auto IV : llvm::enumerate(FD->parameters()))
           if (IV.value()->hasAttr<CUDAGridConstantAttr>())
-            F->addParamAttr(
-                IV.index(),
-                llvm::Attribute::get(F->getContext(), "nvvm.grid_constant"));
+            F->addParamAttr(IV.index(),
+                            llvm::Attribute::get(F->getContext(),
+                                                 llvm::NVVMAttr::GridConstant));
       }
       if (CUDALaunchBoundsAttr *Attr = FD->getAttr<CUDALaunchBoundsAttr>())
         M.handleCUDALaunchBoundsAttr(F, Attr);
@@ -299,6 +308,21 @@ bool NVPTXTargetCodeGenInfo::shouldEmitStaticExternCAliases() const {
   return false;
 }
 
+void NVPTXTargetCodeGenInfo::setTargetAtomicMetadata(
+    CodeGenFunction &CGF, llvm::Instruction &AtomicInst,
+    const AtomicExpr *AE) const {
+  AtomicOptions AO = CGF.CGM.getAtomicOpts();
+  if (AO.getOption(clang::AtomicOptionKind::IgnoreDenormalMode))
+    addAtomicIgnoreDenormalModeMetadata(CGF, AtomicInst, /*AllowHalf=*/true);
+}
+
+StringRef NVPTXTargetCodeGenInfo::getLLVMSyncScopeStr(
+    const LangOptions &LangOpts, SyncScope Scope,
+    llvm::AtomicOrdering Ordering) const {
+  return *llvm::getAtomicScopeIRString(getABIInfo().getTarget().getTriple(),
+                                       getAtomicScope(Scope));
+}
+
 llvm::Constant *
 NVPTXTargetCodeGenInfo::getNullPointer(const CodeGen::CodeGenModule &CGM,
                                        llvm::PointerType *PT,
@@ -325,7 +349,8 @@ void CodeGenModule::handleCUDALaunchBoundsAttr(llvm::Function *F,
     if (MaxThreadsVal)
       *MaxThreadsVal = MaxThreads.getExtValue();
     if (F)
-      F->addFnAttr("nvvm.maxntid", llvm::utostr(MaxThreads.getExtValue()));
+      F->addFnAttr(llvm::NVVMAttr::MaxNTID,
+                   llvm::utostr(MaxThreads.getExtValue()));
   }
 
   // min and max blocks is an optional argument for CUDALaunchBoundsAttr. If it
@@ -338,7 +363,8 @@ void CodeGenModule::handleCUDALaunchBoundsAttr(llvm::Function *F,
       if (MinBlocksVal)
         *MinBlocksVal = MinBlocks.getExtValue();
       if (F)
-        F->addFnAttr("nvvm.minctasm", llvm::utostr(MinBlocks.getExtValue()));
+        F->addFnAttr(llvm::NVVMAttr::MinCTASm,
+                     llvm::utostr(MinBlocks.getExtValue()));
     }
   }
   if (Attr->getMaxBlocks()) {
@@ -348,7 +374,7 @@ void CodeGenModule::handleCUDALaunchBoundsAttr(llvm::Function *F,
       if (MaxClusterRankVal)
         *MaxClusterRankVal = MaxBlocks.getExtValue();
       if (F)
-        F->addFnAttr("nvvm.maxclusterrank",
+        F->addFnAttr(llvm::NVVMAttr::MaxClusterRank,
                      llvm::utostr(MaxBlocks.getExtValue()));
     }
   }
